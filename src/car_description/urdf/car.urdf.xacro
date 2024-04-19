@@ -1,0 +1,176 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="car">
+    <material name="gray">
+        <color rgba="0.8 0.8 0.8 1" />
+    </material>
+    <xacro:property name="wheel_radius" value="0.25" />
+    <xacro:property name="wheel_width" value="0.05" />
+    <xacro:property name="PI" value="3.1415926" />
+    <xacro:property name="base_heigh" value="${wheel_radius}" />
+    <xacro:property name="left_turn" value="bottom_turn" />
+    <xacro:property name="right_turn" value="top_turn" />
+    <xacro:property name="left_bottom_wheel" value="left_bottom" />
+    <xacro:property name="left_top_wheel" value="left_top" />
+    <xacro:property name="right_bottom_wheel" value="right_bottom" />
+    <xacro:property name="right_top_wheel" value="right_top" />
+    <xacro:macro name="wheel" params="link_name parent x y z r p yaw">
+        <link name="wheel_${link_name}">
+            <inertial>
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+                <mass value="10.0" />
+                <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+            </inertial>
+            <visual>
+                <xacro:if value="${y &lt; 0}">
+                    <origin xyz="0.0 ${wheel_width/2} 0" rpy="${PI} 0.0 0.0" />
+                </xacro:if>
+                <xacro:unless value="${y &lt; 0}">
+                    <origin xyz="0.0 ${-wheel_width/2} 0" rpy="0.0 0.0 0.0" />
+                </xacro:unless>
+                <geometry>
+                    <mesh filename="package://car_description/meshes/Wheel.dae" scale="7 7 7" />
+                </geometry>
+            </visual>
+            <collision>
+                <origin xyz="0.0 0.0 0.0" rpy="${PI/2}  0.0 0.0" />
+                <geometry>
+                    <cylinder radius="${wheel_radius}" length="${wheel_width}" />
+                </geometry>
+                <surface>
+                    <friction>
+                        <ode>
+                            <mu>1000000.0</mu>
+                            <mu2>1000000.0</mu2>
+                            <slip1>1.0</slip1>
+                            <slip2>1.0</slip2>
+                        </ode>
+                    </friction>
+                </surface>
+            </collision>
+        </link>
+        <joint name="joint_${link_name}" type="continuous">
+            <origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}" />
+            <parent link="${parent}" />
+            <child link="wheel_${link_name}" />
+            <axis xyz="0.0 1 0.0" />
+            <dynamics damping="0.7" friction="1000" />
+        </joint>
+    </xacro:macro>
+    <xacro:macro name="turn" params="link_name parent x y z r p yaw">
+        <link name="turn_${link_name}">
+            <inertial>
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+                <mass value="10.0" />
+                <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+            </inertial>
+            <visual name="">
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+                <geometry>
+                    <box size="0.01 0.01 0.01" />
+                </geometry>
+                <material name="">
+                    <color rgba="1.0 0.0 0.0 1.0" />
+                    <texture filename="" />
+                </material>
+            </visual>
+            <collision>
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+                <geometry>
+                    <box size="0.01 0.01 0.01" />
+                </geometry>
+            </collision>
+        </link>
+        <joint name="joint_${link_name}" type="revolute">
+            <origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}" />
+            <parent link="${parent}" />
+            <child link="turn_${link_name}" />
+            <axis xyz="0.0 0.0 1" />
+            <limit lower="${-PI}" upper="${PI}" effort="1000.0" velocity="100.0" />
+        </joint>
+    </xacro:macro>
+    <link name="base">
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <geometry>
+                <box size="5 2 0.1" />
+            </geometry>
+            <material name="gray" />
+        </visual>
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <mass value="100.0" />
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+        <collision>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <geometry>
+                <box size="5 2 0.1" />
+            </geometry>
+        </collision>
+    </link>
+
+    <xacro:turn link_name="${left_turn}" parent="base" x="-2" y="${-1-wheel_width/2}"
+        z="0" r="0" p="0" yaw="0"></xacro:turn>
+    <xacro:wheel link_name="${left_bottom_wheel}" parent="turn_${left_turn}" x="0" y="-0.001" z="0"
+        r="0"
+        p="0"
+        yaw="0" />
+    <xacro:turn link_name="${right_turn}" parent="base" x="-2" y="${1+wheel_width/2}"
+        z="0" r="0" p="0" yaw="0"></xacro:turn>
+    <xacro:wheel link_name="${left_top_wheel}" parent="turn_${right_turn}" x="0" y="0"
+        z="0" r="0" p="0"
+        yaw="0" />
+    <xacro:wheel link_name="${right_bottom_wheel}" parent="base" x="2" y="${-1-wheel_width/2}"
+        z="0" r="0" p="0"
+        yaw="0" />
+    <xacro:wheel link_name="${right_top_wheel}" parent="base" x="2" y="${1+wheel_width/2}"
+        z="0" r="0" p="0"
+        yaw="0" />
+
+
+    <xacro:macro name="joint_controller" params="joint_name">
+        <joint name="${joint_name}">
+            <command_interface name="velocity">
+                <param name="min">-5</param>
+                <param name="max">5</param>
+            </command_interface>
+            <state_interface name="position" />
+            <state_interface name="velocity" />
+            <state_interface name="effort" />
+        </joint>
+    </xacro:macro>
+    <ros2_control name="IgnitionSystem" type="system">
+        <hardware>
+            <plugin>ign_ros2_control/IgnitionSystem</plugin>
+        </hardware>
+        <xacro:joint_controller joint_name="joint_${left_bottom_wheel}" />
+        <xacro:joint_controller joint_name="joint_${left_top_wheel}" />
+        <xacro:joint_controller joint_name="joint_${right_bottom_wheel}" />
+        <xacro:joint_controller joint_name="joint_${right_top_wheel}" />
+        <joint name="joint_${left_turn}">
+            <command_interface name="position">
+                <param name="min">${-PI}</param>
+                <param name="max">${PI}</param>
+            </command_interface>
+            <state_interface name="position" />
+            <state_interface name="velocity" />
+            <state_interface name="effort" />
+        </joint>
+        <joint name="joint_${right_turn}">
+            <command_interface name="position">
+                <param name="min">${-PI}</param>
+                <param name="max">${PI}</param>
+            </command_interface>
+            <state_interface name="position" />
+            <state_interface name="velocity" />
+            <state_interface name="effort" />
+        </joint>
+    </ros2_control>
+    <gazebo>
+        <!-- Joint state publisher -->
+        <plugin filename="ign_ros2_control-system"
+            name="ign_ros2_control::IgnitionROS2ControlPlugin">
+            <parameters>$(find car_description)/config/car.yaml</parameters>
+        </plugin>
+    </gazebo>
+</robot>
