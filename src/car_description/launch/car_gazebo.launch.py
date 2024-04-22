@@ -17,7 +17,7 @@ def generate_launch_description():
     car_description = get_package_share_directory('car_description')
     xacro_f = os.path.join(car_description,
                            'urdf',
-                           'car.urdf.xacro')
+                           'buggy3.urdf.xacro')
     world = os.path.join(car_description, 'launch', 'car.sdf')
     doc = xacro.parse(open(xacro_f))
     xacro.process_doc(doc)
@@ -28,7 +28,7 @@ def generate_launch_description():
         [car_description, 'config', 'car.yaml'])
     robot_state_publisher = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher', output='screen', parameters=[
-            {'robot_description': doc.toxml()},
+            {'use_sim_time': use_sim_time}, {'robot_description': doc.toxml()},
         ]
     )
     # joint_state_publisher_viz = Node(

@@ -14,7 +14,7 @@ find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(sensor_msgs REQUIRED)
-
+find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
@@ -29,6 +29,7 @@ ament_target_dependencies(
   tf2
   sensor_msgs
   geometry_msgs
+  nav_msgs
 )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
