@@ -46,7 +46,7 @@ install(TARGETS move
 DESTINATION lib/${PROJECT_NAME}
 
 )
-install(DIRECTORY launch urdf meshes config
+install(DIRECTORY launch urdf meshes config world
 DESTINATION share/${PROJECT_NAME}
 )
 ament_package()

@@ -18,7 +18,7 @@ def generate_launch_description():
     xacro_f = os.path.join(car_description,
                            'urdf',
                            'buggy3.urdf.xacro')
-    world = os.path.join(car_description, 'launch', 'car.sdf')
+    world = os.path.join(car_description, 'world', 'empty.sdf')
     doc = xacro.parse(open(xacro_f))
     xacro.process_doc(doc)
     params = {'robot_description': doc.toxml()}
@@ -64,7 +64,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-            # '/world/empty/pose/info@tf2_msgs/msg/TFMessage[ignition::msgs::Pose_V]'
+            '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan'
         ],
         output='screen'
     )
@@ -121,7 +121,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             [os.path.join(get_package_share_directory('ros_ign_gazebo'),
                           'launch', 'ign_gazebo.launch.py')]),
-        launch_arguments=[('gz_args', [' -r -v 4 ', "empty.sdf"])]),)
+        launch_arguments=[('gz_args', [' -r -v 4 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
     ld.add_action(spawn_joint_controller)
     ld.add_action(spawn_joint_state_publisher)
