@@ -16,6 +16,7 @@
 #include <tf2/convert.h>
 #include <tf2_ros/transform_broadcaster.h>
 
+#include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Eigen>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -26,6 +27,10 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+
+#include "../include/pugixml.hpp"
 class JointPID {
  public:
   enum class Type { velocity = 0, position = 1 };
@@ -302,7 +307,80 @@ class CarController : public rclcpp::Node {
   rclcpp::Subscription<rosgraph_msgs::msg::Clock>::SharedPtr clock;
   builtin_interfaces::msg::Time time;
 };
+class RefPostMap {
+ public:
+  RefPostMap(const std::string& path, rclcpp::Node::SharedPtr node)
+      : node(node) {
+    pugi::xml_parse_result result = doc.load_file(path.c_str());
+    if (!result) {
+      RCLCPP_ERROR(node->get_logger(), "parse xml failed: %s",
+                   result.description());
+    } else {
+      auto world = doc.first_child().first_child();
+      auto refs = world.find_child([](pugi::xml_node node) {
+        return (std::string(node.attribute("name").as_string()) ==
+                "reflect_posts") &&
+               (std::string(node.name()) == "model");
+      });
+      auto link = refs.find_node([](pugi::xml_node node) {
+        return std::string(node.name()) == "link";
+      });
+      while (link.type() != pugi::node_null) {
+        if (std::string(link.name()) != "link") {
+          break;
+        }
+        auto pose = link.child("pose").text();
+        std::vector<std::string> result;
+        std::vector<double> pos;
+        boost::split(result, boost::trim_copy(std::string(pose.as_string())),
+                     boost::is_any_of(" "));
+        for (auto& x : result) {
+          // RCLCPP_INFO(node->get_logger(), "%s", x.c_str());
+          double value = std::stof(x);
+          pos.push_back(value);
+        }
+        assert(pos.size() == 6);
+        posts.insert(std::pair<double, double>(pos.at(0), pos.at(1)));
+        link = link.next_sibling();
+      }
+      publisher = node->create_publisher<visualization_msgs::msg::MarkerArray>(
+          "/map_post", 1);
 
+      timer = node->create_wall_timer(std::chrono::seconds(5), [&] {
+        visualization_msgs::msg::MarkerArray markers;
+        static uint64_t id{0};
+        for (auto& x : posts) {
+          visualization_msgs::msg::Marker marker;
+          marker.header.frame_id = "MR-Buggy3/Base";
+          marker.id = id++;
+          marker.lifetime.sec = 5;
+          marker.lifetime.nanosec = 300000000;
+          marker.color.a = 0.35;
+          marker.color.r = 70.0 / 255;
+          marker.color.g = 114.0 / 255;
+          marker.color.b = 156.0 / 255;
+          marker.scale.x = 0.1;
+          marker.scale.y = 0.1;
+          marker.scale.z = 0.5;
+          marker.action = visualization_msgs::msg::Marker::ADD;
+          marker.pose.position.set__x(x.first);
+          marker.pose.position.set__y(x.second);
+          marker.pose.position.set__z(0.2);
+          marker.type = visualization_msgs::msg::Marker::CYLINDER;
+          markers.markers.push_back(marker);
+        }
+        publisher->publish(markers);
+      });
+    }
+  }
+
+ private:
+  rclcpp::Node::SharedPtr node;
+  pugi::xml_document doc;
+  std::set<std::pair<double, double>> posts;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher;
+  rclcpp::TimerBase::SharedPtr timer;
+};
 int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<CarController>("cmd_vel_demo");
@@ -331,6 +409,10 @@ int main(int argc, char* argv[]) {
   node->joints.push_back(front_left_steer);
 
   node->run();
+  node->declare_parameter("model", "");
+  RCLCPP_INFO(node->get_logger(), "%d",
+              node->get_parameter("use_sim_time").as_bool());
+  auto post = RefPostMap(node->get_parameter("model").as_string(), node);
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

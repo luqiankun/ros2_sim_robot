@@ -16,11 +16,12 @@ find_package(tf2_ros REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
-add_executable(move src/main.cc)
+add_executable(move src/main.cc src/pugixml.cc)
 ament_target_dependencies(
   move
   rclcpp
@@ -30,6 +31,7 @@ ament_target_dependencies(
   sensor_msgs
   geometry_msgs
   nav_msgs
+  visualization_msgs
 )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

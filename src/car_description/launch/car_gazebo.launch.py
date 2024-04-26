@@ -38,6 +38,10 @@ def generate_launch_description():
     #     output='screen',
     #     parameters=[{'use_sim_time': use_sim_time}],
     # )
+
+    ref_detect = IncludeLaunchDescription(PythonLaunchDescriptionSource(
+        [os.path.join(get_package_share_directory('ref_detect'), 'launch', 'ref.launch.py')]))
+
     joint_state_publisher = ExecuteProcess(
         cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
              'joint_state_broadcaster'],
@@ -55,7 +59,7 @@ def generate_launch_description():
         executable='move',
         name='cmd_vel_control_demo',
         output="screen",
-        parameters=[{'use_sim_time': use_sim_time}],
+        parameters=[{'use_sim_time': use_sim_time}, {"model": world}],
 
     )
     # Bridge
@@ -128,6 +132,7 @@ def generate_launch_description():
     ld.add_action(ign_spawn)
 
     ld.add_action(spawn_cmd_move)
+    ld.add_action(ref_detect)
     # ld.add_action(robot_state_publisher)
 
     return ld

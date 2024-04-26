@@ -197,19 +197,20 @@ class RefDetecter {
       for (auto& x : temp_fit_posts) {
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "MR-Buggy3/Base";
-        marker.header.stamp = time_now;
+        // marker.header.stamp = time_now;
         marker.lifetime.sec = 0;
-        marker.lifetime.nanosec = 100000000;
-        marker.color.a = 0.6;
-        marker.color.r = 0.8;
-        marker.color.g = 0.1;
-        marker.color.b = 0.1;
+        marker.lifetime.nanosec = 110000000;
+        marker.color.a = 0.7;
+        marker.color.r = 35.0 / 255;
+        marker.color.g = 204.0 / 255;
+        marker.color.b = 150.0 / 255;
         marker.scale.x = x.radius * 2;
         marker.scale.y = x.radius * 2;
-        marker.scale.z = 1;
+        marker.scale.z = 0.3;
         marker.action = visualization_msgs::msg::Marker::ADD;
         marker.pose.position.set__x(x.x);
         marker.pose.position.set__y(x.y);
+        marker.pose.position.set__z(0.2);
         marker.set__id(x.index);
         marker.type = visualization_msgs::msg::Marker::CYLINDER;
         marker.text = "fit_post_" + std::to_string(x.index);
