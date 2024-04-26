@@ -43,8 +43,28 @@ class RefDetecter {
     }
     const double _x, _y;
   };
+  class CostParse : public ceres::SizedCostFunction<1, 3> {
+   public:
+    CostParse(double x, double y)
+        : ceres::SizedCostFunction<1, 3>(), _x(x), _y(y) {}
+    bool Evaluate(double const* const* parameters, double* residuals,
+                  double** jacobians) const override {
+      double a = parameters[0][0];
+      double b = parameters[0][1];
+      double c = parameters[0][2];
+      residuals[0] = _x * _x + _y * _y + a * _x + b * _y + c;
+      if (jacobians != nullptr) {
+        jacobians[0][0] = _x;
+        jacobians[0][1] = _y;
+        jacobians[0][2] = 1;
+      }
+      return true;
+    }
+    const double _x, _y;
+  };
 
   void scan_cb(sensor_msgs::msg::LaserScan::ConstSharedPtr msg) {
+    // auto st = std::chrono::system_clock::now();
     std::set<Post, comp<Post>> temp_posts;
     uint32_t max = msg->ranges.size();
     double step = msg->angle_increment;
@@ -62,7 +82,7 @@ class RefDetecter {
         if (flag) {
           flag = false;
           end_index = i;
-          if (end_index - beg_index > 5) {
+          if (end_index - beg_index > 6) {
             // 提取
             Post post;
             post.index = temp_posts.size();
@@ -86,75 +106,76 @@ class RefDetecter {
       }
     }
     fit_post(temp_posts, fit_posts);
+    // auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(
+    //               std::chrono::system_clock::now() - st)
+    //               .count();
+    // RCLCPP_INFO(node->get_logger(), "time:%ld", dt);
   }
 
   void fit_post(std::set<Post, comp<Post>>& posts,
                 std::set<FitPost, comp<FitPost>>& fit_posts) {
     std::set<FitPost, comp<FitPost>> temp_fit_posts;
-    // ceres
-    //  for (auto& x : posts) {
-    //    ceres::Problem problem;
-    //    ceres::Solver::Options options;
-    //    ceres::Solver::Summary summary;
-    //    double X{0}, Y{0};
-    //    double ABC[3]{0, 0, 0};
-    //    options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
-    //    options.minimizer_progress_to_stdout = false;
-    //    for (auto& p : x.points) {
-    //      problem.AddResidualBlock(
-    //          new ceres::AutoDiffCostFunction<Cost, 1, 3>(new Cost(p.x, p.y)),
-    //          new ceres::HuberLoss(0.5), ABC);
-    //      // RCLCPP_INFO(node->get_logger(), "add (%f , %f)", p.x, p.y);
-    //    }
-    //    ceres::Solve(options, &problem, &summary);
-    //    X = -ABC[0] / 2;
-    //    Y = -ABC[1] / 2;
-    //    auto sqr = sqrt(X * X + Y * Y - ABC[2]);
-    //    FitPost fit_post;
-    //    fit_post.x = X;
-    //    fit_post.y = Y;
-    //    fit_post.index = x.index;
-    //    fit_post.radius = sqr;
-    //    temp_fit_posts.insert(fit_post);
-    //    // RCLCPP_INFO(node->get_logger(), "fit_post index:%d x:%f y%f
-    //    radius:%f",
-    //    //             x.index, X, Y, sqr);
-    //  }
-
-    // 几何法
+    // ceres 解析求导
     for (auto& x : posts) {
-      double fai{0};
-      for (auto& p : x.points) {
-        fai += p.theta;
-      }
-      fai = fai / x.points.size();
-      double Lb = 0;
-      for (auto& p : x.points) {
-        double fai_i = p.theta - fai;
-        double l = sqrt(p.x * p.x + p.y * p.y);
-        double A = l * cos(fai_i);
-        double B = l * sin(fai_i) / 0.05;
-        if (B >= 1) {
-          B = 1;
-        } else if (B <= -1) {
-          B = -1;
-        }
-        double C = std::asin(B);
+      ceres::Problem problem;
+      ceres::Solver::Options options;
+      ceres::Solver::Summary summary;
+      double X{0}, Y{0};
+      double ABC[3];
 
-        double OrB_i = A + 0.05 * cos(C);
-        Lb = Lb + OrB_i;
+      options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+      options.minimizer_progress_to_stdout = false;
+      for (auto& p : x.points) {
+        ceres::CostFunction* cost = new CostParse(p.x, p.y);
+        problem.AddResidualBlock(cost, new ceres::HuberLoss(0.5), ABC);
+        // RCLCPP_INFO(node->get_logger(), "add (%f , %f)", p.x, p.y);
       }
-      auto LB = Lb / x.points.size();
+      ceres::Solve(options, &problem, &summary);
+      X = -ABC[0] / 2;
+      Y = -ABC[1] / 2;
+      auto sqr = sqrt(X * X + Y * Y - ABC[2]);
       FitPost fit_post;
+      fit_post.x = X;
+      fit_post.y = Y;
       fit_post.index = x.index;
-      fit_post.radius = 0.05;
-      fit_post.x = LB * cos(fai);
-      fit_post.y = LB * sin(fai);
+      fit_post.radius = sqr;
       temp_fit_posts.insert(fit_post);
+      // RCLCPP_INFO(node->get_logger(), "fit_post index:%d x:%f y%f radius: % f
+      // ",
+      //             x.index, X, Y, sqr);
     }
 
-    // TODO 直接矩阵计算最小二乘法
+    // 几何法
+    // for (auto& x : posts) {
+    //   double fai{0};
+    //   for (auto& p : x.points) {
+    //     fai += p.theta;
+    //   }
+    //   fai = fai / x.points.size();
+    //   double Lb = 0;
+    //   for (auto& p : x.points) {
+    //     double fai_i = p.theta - fai;
+    //     double l = sqrt(p.x * p.x + p.y * p.y);
+    //     double A = l * cos(fai_i);
+    //     double B = l * sin(fai_i) / 0.05;
+    //     if (B >= 1) {
+    //       B = 1;
+    //     } else if (B <= -1) {
+    //       B = -1;
+    //     }
+    //     double C = std::asin(B);
 
+    //     double OrB_i = A + 0.05 * cos(C);
+    //     Lb = Lb + OrB_i;
+    //   }
+    //   auto LB = Lb / x.points.size();
+    //   FitPost fit_post;
+    //   fit_post.index = x.index;
+    //   fit_post.radius = 0.05;
+    //   fit_post.x = LB * cos(fai);
+    //   fit_post.y = LB * sin(fai);
+    //   temp_fit_posts.insert(fit_post);
+    // }
     fit_posts = temp_fit_posts;
   }
 
@@ -183,8 +204,8 @@ class RefDetecter {
         marker.color.r = 0.8;
         marker.color.g = 0.1;
         marker.color.b = 0.1;
-        marker.scale.x = 0.05;
-        marker.scale.y = 0.05;
+        marker.scale.x = x.radius * 2;
+        marker.scale.y = x.radius * 2;
         marker.scale.z = 1;
         marker.action = visualization_msgs::msg::Marker::ADD;
         marker.pose.position.set__x(x.x);
