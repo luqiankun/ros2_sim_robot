@@ -18,6 +18,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Eigen>
+#include <filesystem>
+#include <fstream>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <memory>
@@ -316,6 +318,15 @@ class RefPostMap {
       RCLCPP_ERROR(node->get_logger(), "parse xml failed: %s",
                    result.description());
     } else {
+      // std::filesystem::path path("map_post.txt");
+      // if (!std::filesystem::exists(path)) {
+      //   std::filesystem::
+      // }
+      std::fstream file;
+      file.open("map_post.txt",
+                std::iostream::trunc | std::iostream::in | std::iostream::out);
+      assert(file.is_open());
+
       auto world = doc.first_child().first_child();
       auto refs = world.find_child([](pugi::xml_node node) {
         return (std::string(node.attribute("name").as_string()) ==
@@ -329,6 +340,11 @@ class RefPostMap {
         if (std::string(link.name()) != "link") {
           break;
         }
+        auto id = link.attribute("name").as_string();
+        std::vector<std::string> ids;
+        boost::split(ids, boost::trim_copy(std::string(id)),
+                     boost::is_any_of("_"));
+        assert(ids.size() == 3);
         auto pose = link.child("pose").text();
         std::vector<std::string> result;
         std::vector<double> pos;
@@ -340,19 +356,27 @@ class RefPostMap {
           pos.push_back(value);
         }
         assert(pos.size() == 6);
-        posts.insert(std::pair<double, double>(pos.at(0), pos.at(1)));
+        posts[std::stoul(ids.at(1))] =
+            (std::pair<double, double>(pos.at(0), pos.at(1)));
         link = link.next_sibling();
+        if (link.type() == pugi::node_null ||
+            std::string(link.name()) != "link") {
+          file << std::stoul(ids.at(1)) << "|" << pos.at(0) << "|" << pos.at(1);
+        } else {
+          file << std::stoul(ids.at(1)) << "|" << pos.at(0) << "|" << pos.at(1)
+               << "\n";
+        }
       }
+      file.close();
       publisher = node->create_publisher<visualization_msgs::msg::MarkerArray>(
           "/map_post", 1);
 
       timer = node->create_wall_timer(std::chrono::seconds(5), [&] {
         visualization_msgs::msg::MarkerArray markers;
-        static uint64_t id{0};
         for (auto& x : posts) {
           visualization_msgs::msg::Marker marker;
           marker.header.frame_id = "MR-Buggy3/Base";
-          marker.id = id++;
+          marker.id = x.first;
           marker.lifetime.sec = 5;
           marker.lifetime.nanosec = 300000000;
           marker.color.a = 0.35;
@@ -363,8 +387,8 @@ class RefPostMap {
           marker.scale.y = 0.1;
           marker.scale.z = 0.5;
           marker.action = visualization_msgs::msg::Marker::ADD;
-          marker.pose.position.set__x(x.first);
-          marker.pose.position.set__y(x.second);
+          marker.pose.position.set__x(x.second.first);
+          marker.pose.position.set__y(x.second.second);
           marker.pose.position.set__z(0.2);
           marker.type = visualization_msgs::msg::Marker::CYLINDER;
           markers.markers.push_back(marker);
@@ -377,7 +401,7 @@ class RefPostMap {
  private:
   rclcpp::Node::SharedPtr node;
   pugi::xml_document doc;
-  std::set<std::pair<double, double>> posts;
+  std::map<uint64_t, std::pair<double, double>> posts;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher;
   rclcpp::TimerBase::SharedPtr timer;
 };

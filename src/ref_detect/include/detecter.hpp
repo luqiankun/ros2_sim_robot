@@ -1,5 +1,5 @@
-#ifndef DETECR_HPP
-#define DETECR_HPP
+#ifndef REF_DETECT_HPP
+#define REF_DETECT_HPP
 #include <ceres/ceres.h>
 
 #include <rclcpp/rclcpp.hpp>
@@ -7,6 +7,15 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+
+#include "match.hpp"
+class FitPost {
+ public:
+  double x{0};
+  double y{0};
+  uint32_t index{0};
+  double radius{0};
+};
 class RefDetecter {
  public:
   struct PostPoint {
@@ -26,12 +35,7 @@ class RefDetecter {
     std::set<PostPoint, comp<PostPoint>> points;
     uint32_t index;
   };
-  struct FitPost {
-    double x;
-    double y;
-    uint32_t index;
-    double radius;
-  };
+
   struct Cost {
     Cost(double x, double y) : _x(x), _y(y) {}
     template <typename T>
@@ -80,6 +84,12 @@ class RefDetecter {
         }
       } else {
         if (flag) {
+          //  判断间断点 最多容忍两个连续的异常点
+          if (msg->intensities.at(i - 1) > 500) {
+            continue;
+          } else if ((i >= 2) && msg->intensities.at(i - 2) > 500) {
+            continue;
+          }
           flag = false;
           end_index = i;
           if (end_index - beg_index > 6) {
@@ -94,9 +104,14 @@ class RefDetecter {
               point.index = j;
               point.f = msg->intensities.at(j);
               point.theta = theta;
-              post.points.insert(point);
+              if (!std::isinf(msg->ranges.at(i)) &&
+                  !std::isnan(msg->ranges.at(i)) && point.f > 500) {
+                post.points.insert(point);
+              }
             }
-            temp_posts.insert(post);
+            if (!post.points.empty()) {
+              temp_posts.insert(post);
+            }
           }
           beg_index = i;
         } else {
@@ -110,11 +125,34 @@ class RefDetecter {
     //               std::chrono::system_clock::now() - st)
     //               .count();
     // RCLCPP_INFO(node->get_logger(), "time:%ld", dt);
+    auto p1 = *fit_posts.begin();
+    auto p2 = fit_posts.at(fit_posts.size() / 2);
+    auto p3 = *(fit_posts.end() - 1);
+    RCLCPP_INFO(node->get_logger(), "%d %d %d", p1.index, p2.index, p3.index);
+
+    auto res = cells->match(std::array<FitPost, 3>{p1, p2, p3});
+    if (res.has_value()) {
+      RCLCPP_INFO(node->get_logger(),
+                  "p1:(%f,%f) res_1:(%f,%f) p2:(%f,%f) res_2:(%f,%f)p3: (% f, "
+                  "% f) res_3: (% f, % f) ",
+                  p1.x, p1.y, res.value()[0].x, res.value()[0].y, p2.x, p2.y,
+                  res.value()[1].x, res.value()[1].y, p3.x, p3.y,
+                  res.value()[2].x, res.value()[2].y);
+    }
+    // RCLCPP_INFO(node->get_logger(),
+    //             "p1:(%f,%f) res_1:(%f,%f) p2:(%f,%f) res_2:(%f,%f) p3:(%f,%f)
+    //             " "res_3:(%f,%f)", p1.x, p1.y, p2.x, p2.y, p3.x, p3.y,
+    //             res.value()[0].x, res.value()[0].y, res.value()[1].x,
+    //             res.value()[1].y, res.value()[2].x, res.value()[2].y);
+    // auto loc =
+    //     cells->rough_location(res.value(), std::array<FitPost, 3>{p1, p2,
+    //     p3});
+    // RCLCPP_INFO_STREAM(node->get_logger(), loc);
   }
 
   void fit_post(std::set<Post, comp<Post>>& posts,
-                std::set<FitPost, comp<FitPost>>& fit_posts) {
-    std::set<FitPost, comp<FitPost>> temp_fit_posts;
+                std::vector<FitPost>& fit_posts) {
+    std::vector<FitPost> temp_fit_posts;
     // ceres 解析求导
     for (auto& x : posts) {
       ceres::Problem problem;
@@ -122,7 +160,6 @@ class RefDetecter {
       ceres::Solver::Summary summary;
       double X{0}, Y{0};
       double ABC[3];
-
       options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
       options.minimizer_progress_to_stdout = false;
       for (auto& p : x.points) {
@@ -139,7 +176,18 @@ class RefDetecter {
       fit_post.y = Y;
       fit_post.index = x.index;
       fit_post.radius = sqr;
-      temp_fit_posts.insert(fit_post);
+      bool exist{false};
+      for (auto& x : temp_fit_posts) {
+        auto err = std::hypot(x.x - fit_post.x, x.y - fit_post.y);
+        if (err <= 0.005) {
+          exist = true;
+          RCLCPP_ERROR(node->get_logger(), "******************************");
+          break;
+        }
+      }
+      if (!exist) {
+        temp_fit_posts.push_back(fit_post);
+      }
       // RCLCPP_INFO(node->get_logger(), "fit_post index:%d x:%f y%f radius: % f
       // ",
       //             x.index, X, Y, sqr);
@@ -177,9 +225,11 @@ class RefDetecter {
     //   temp_fit_posts.insert(fit_post);
     // }
     fit_posts = temp_fit_posts;
+    std::sort(fit_posts.begin(), fit_posts.end(), comp<FitPost>());
   }
 
   RefDetecter(rclcpp::Node::SharedPtr n) : node(n) {
+    node->declare_parameter("map_file", "");
     clock = node->create_subscription<rosgraph_msgs::msg::Clock>(
         "/clock", 1, [&](rosgraph_msgs::msg::Clock::ConstSharedPtr msg) {
           time_now = msg->clock;
@@ -189,10 +239,14 @@ class RefDetecter {
         std::bind(&RefDetecter::scan_cb, this, std::placeholders::_1));
     publisher = node->create_publisher<visualization_msgs::msg::MarkerArray>(
         "/fit_posts", 1);
+    auto path = node->get_parameter("map_file").as_string();
+    assert(!path.empty());
+    cells = std::make_shared<Cells>(path);
+    RCLCPP_INFO(node->get_logger(), "%zu", cells->edges.size());
     timer = node->create_wall_timer(std::chrono::milliseconds(100), [&] {
       //
       visualization_msgs::msg::MarkerArray markers;
-      std::set<FitPost, comp<FitPost>> temp_fit_posts;
+      std::vector<FitPost> temp_fit_posts;
       temp_fit_posts = fit_posts;
       for (auto& x : temp_fit_posts) {
         visualization_msgs::msg::Marker marker;
@@ -228,6 +282,7 @@ class RefDetecter {
   rclcpp::Subscription<rosgraph_msgs::msg::Clock>::SharedPtr clock;
   rclcpp::TimerBase::SharedPtr timer;
   builtin_interfaces::msg::Time time_now;
-  std::set<FitPost, comp<FitPost>> fit_posts;
+  std::vector<FitPost> fit_posts;
+  std::shared_ptr<Cells> cells;
 };
 #endif

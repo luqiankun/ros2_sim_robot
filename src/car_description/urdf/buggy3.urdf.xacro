@@ -367,7 +367,7 @@
             <topic>lidar</topic>
             <update_rate>10</update_rate>
             <gz_frame_id>MR-Buggy3/GpuLidar</gz_frame_id>
-            <ray>
+            <lidar>
                 <scan>
                     <horizontal>
                         <samples>3600</samples>
@@ -396,7 +396,7 @@
                         0.001
                     </stddev>
                 </noise>
-            </ray>
+            </lidar>
         </sensor>
     </gazebo>
 </robot>
