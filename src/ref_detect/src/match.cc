@@ -24,8 +24,8 @@ std::optional<std::array<Point, 3>> Cells::match(std::array<FitPost, 3> src) {
       if (std::fabs(coss) < tolerance) {
         index.push_back(edges.at(mid).A.index);
         index.push_back(edges.at(mid).B.index);
-        std::cerr << "----p1p2--------" << edges.at(mid).A.index << " "
-                  << edges.at(mid).B.index << "\n";
+        // std::cerr << "----p1p2--------" << edges.at(mid).A.index << " "
+        //           << edges.at(mid).B.index << "\n";
       }
     }
   }
@@ -43,8 +43,8 @@ std::optional<std::array<Point, 3>> Cells::match(std::array<FitPost, 3> src) {
       if (std::fabs(coss) < tolerance) {
         index.push_back(edges.at(mid).A.index);
         index.push_back(edges.at(mid).B.index);
-        std::cerr << "----p1p3--------" << edges.at(mid).A.index << " "
-                  << edges.at(mid).B.index << "\n";
+        // std::cerr << "----p1p3--------" << edges.at(mid).A.index << " "
+        //           << edges.at(mid).B.index << "\n";
       }
       // std::cerr << "------p1p3------" << coss << "\n";
     }
@@ -63,8 +63,8 @@ std::optional<std::array<Point, 3>> Cells::match(std::array<FitPost, 3> src) {
       if (std::fabs(coss) < tolerance) {
         index.push_back(edges.at(mid).A.index);
         index.push_back(edges.at(mid).B.index);
-        std::cerr << "----p2p3--------" << edges.at(mid).A.index << " "
-                  << edges.at(mid).B.index << "\n";
+        // std::cerr << "----p2p3--------" << edges.at(mid).A.index << " "
+        //           << edges.at(mid).B.index << "\n";
       }
       // std::cerr << "------p2p3------" << coss << "\n";
     }
@@ -76,7 +76,7 @@ std::optional<std::array<Point, 3>> Cells::match(std::array<FitPost, 3> src) {
   std::vector<int> ids;
   for (auto& i : index) {
     auto c = std::count(index.begin(), index.end(), i);
-    std::cerr << i << " count " << c << "\n";
+    // std::cerr << i << " count " << c << "\n";
     if (c == 2) {
       ids.push_back(i);
     }
@@ -86,19 +86,19 @@ std::optional<std::array<Point, 3>> Cells::match(std::array<FitPost, 3> src) {
   if (ids.size() < 3) {
     return std::nullopt;
   } else {
-    std::cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << ids.size()
-              << "\n";
+    // std::cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << ids.size()
+    //           << "\n";
     std::vector<Point> ps;
     for (auto& x : ids) {
-      std::cerr << "[---------          ]" << x << "\n";
+      // std::cerr << "[---------          ]" << x << "\n";
       for (auto& e : edges) {
         if (e.A.index == x) {
           ps.push_back(e.A);
-          std::cerr << e.A.index << " " << e.A.x << " " << e.A.y << "\n";
+          // std::cerr << e.A.index << " " << e.A.x << " " << e.A.y << "\n";
           break;
         } else if (e.B.index == x) {
           ps.push_back(e.B);
-          std::cerr << e.B.index << " " << e.B.x << " " << e.B.y << "\n";
+          // std::cerr << e.B.index << " " << e.B.x << " " << e.B.y << "\n";
           break;
         }
       }

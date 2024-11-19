@@ -123,8 +123,8 @@ def generate_launch_description():
         description='If true, use simulated clock'))
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            [os.path.join(get_package_share_directory('ros_ign_gazebo'),
-                          'launch', 'ign_gazebo.launch.py')]),
+            [os.path.join(get_package_share_directory('ros_gz_sim'),
+                          'launch', 'gz_sim.launch.py')]),
         launch_arguments=[('gz_args', [' -r -v 4 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
     ld.add_action(spawn_joint_controller)
@@ -132,7 +132,7 @@ def generate_launch_description():
     ld.add_action(ign_spawn)
 
     ld.add_action(spawn_cmd_move)
-    ld.add_action(ref_detect)
+    # ld.add_action(ref_detect)
     # ld.add_action(robot_state_publisher)
 
     return ld

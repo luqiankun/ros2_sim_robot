@@ -67,6 +67,24 @@ class RefDetecter {
     const double _x, _y;
   };
 
+  class CostC : public ceres::SizedCostFunction<1, 2> {
+   public:
+    CostC(double x, double y, double r)
+        : ceres::SizedCostFunction<1, 2>(), _x(x), _y(y), _r(r) {}
+    bool Evaluate(double const* const* parameters, double* residuals,
+                  double** jacobians) const override {
+      double a = parameters[0][0];
+      double b = parameters[0][1];
+      double c = a * a + b * b - _r * _r;
+      residuals[0] = _x * _x + _y * _y + a * _x + b * _y + c;
+      if (jacobians != nullptr) {
+        jacobians[0][0] = _x;
+        jacobians[0][1] = _y;
+      }
+      return true;
+    }
+    const double _x, _y, _r;
+  };
   void scan_cb(sensor_msgs::msg::LaserScan::ConstSharedPtr msg) {
     // auto st = std::chrono::system_clock::now();
     std::set<Post, comp<Post>> temp_posts;
@@ -124,21 +142,63 @@ class RefDetecter {
     // auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(
     //               std::chrono::system_clock::now() - st)
     //               .count();
-    // RCLCPP_INFO(node->get_logger(), "time:%ld", dt);
-    auto p1 = *fit_posts.begin();
-    auto p2 = fit_posts.at(fit_posts.size() / 2);
-    auto p3 = *(fit_posts.end() - 1);
-    RCLCPP_INFO(node->get_logger(), "%d %d %d", p1.index, p2.index, p3.index);
+    RCLCPP_INFO(node->get_logger(), "size :%ld", fit_posts.size());
+    ceres::Problem problem;
+    ceres::Solver::Options options;
+    ceres::Solver::Summary summary;
+    options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+    options.minimizer_progress_to_stdout = false;
+    double AB[2];
+    std::vector<double> theta_sum_ori{0};
+    std::vector<double> theta_sum_up{0};
 
-    auto res = cells->match(std::array<FitPost, 3>{p1, p2, p3});
-    if (res.has_value()) {
-      RCLCPP_INFO(node->get_logger(),
-                  "p1:(%f,%f) res_1:(%f,%f) p2:(%f,%f) res_2:(%f,%f)p3: (% f, "
-                  "% f) res_3: (% f, % f) ",
-                  p1.x, p1.y, res.value()[0].x, res.value()[0].y, p2.x, p2.y,
-                  res.value()[1].x, res.value()[1].y, p3.x, p3.y,
-                  res.value()[2].x, res.value()[2].y);
+    while (fit_posts.size() > 3) {
+      auto p1 = *fit_posts.begin();
+      auto p2 = fit_posts.at(fit_posts.size() / 2);
+      auto p3 = *(fit_posts.end() - 1);
+      RCLCPP_INFO(node->get_logger(), "%d %d %d", p1.index, p2.index, p3.index);
+      auto res = cells->match(std::array<FitPost, 3>{p1, p2, p3});
+      if (res.has_value()) {
+        RCLCPP_INFO(
+            node->get_logger(),
+            "p1:(%f,%f) res_1:(%f,%f) p2:(%f,%f) res_2:(%f,%f)p3: (% f, "
+            "% f) res_3: (% f, % f) ",
+            p1.x, p1.y, res.value()[0].x, res.value()[0].y, p2.x, p2.y,
+            res.value()[1].x, res.value()[1].y, p3.x, p3.y, res.value()[2].x,
+            res.value()[2].y);
+        ceres::CostFunction* cost1 = new CostC(
+            res.value()[0].x, res.value()[0].y, std::hypot(p1.x, p1.y));
+        problem.AddResidualBlock(cost1, new ceres::HuberLoss(0.5), AB);
+        double theta_ori_1 = std::atan2(p1.y, p1.x);
+        theta_sum_ori.push_back(theta_ori_1);
+        double theta_up_1 =
+            atan2(p1.y - res.value()[0].y, p1.x - res.value()[0].index);
+        theta_sum_up.push_back(theta_up_1);
+        ceres::CostFunction* cost2 = new CostC(
+            res.value()[1].x, res.value()[1].y, std::hypot(p2.x, p2.y));
+        problem.AddResidualBlock(cost2, new ceres::HuberLoss(0.5), AB);
+        double theta_ori_2 = std::atan2(p2.y, p2.x);
+        theta_sum_ori.push_back(theta_ori_2);
+        double theta_up_2 =
+            atan2(p2.y - res.value()[1].y, p2.x - res.value()[1].index);
+        theta_sum_up.push_back(theta_up_2);
+        ceres::CostFunction* cost3 = new CostC(
+            res.value()[2].x, res.value()[2].y, std::hypot(p3.x, p3.y));
+        problem.AddResidualBlock(cost3, new ceres::HuberLoss(0.5), AB);
+        double theta_ori_3 = std::atan2(p3.y, p3.x);
+        theta_sum_ori.push_back(theta_ori_3);
+        double theta_up_3 =
+            atan2(p3.y - res.value()[2].y, p3.x - res.value()[2].index);
+        theta_sum_up.push_back(theta_up_3);
+      }
+      fit_posts.erase(fit_posts.begin() + fit_posts.size() / 2);
+      fit_posts.erase(fit_posts.begin());
+      fit_posts.erase(fit_posts.end() - 1);
     }
+    ceres::Solve(options, &problem, &summary);
+    double x = -AB[0] / 2;
+    double y = -AB[1] / 2;
+    RCLCPP_INFO(node->get_logger(), "X: %f  Y: %f", x, y);
     // RCLCPP_INFO(node->get_logger(),
     //             "p1:(%f,%f) res_1:(%f,%f) p2:(%f,%f) res_2:(%f,%f) p3:(%f,%f)
     //             " "res_3:(%f,%f)", p1.x, p1.y, p2.x, p2.y, p3.x, p3.y,
