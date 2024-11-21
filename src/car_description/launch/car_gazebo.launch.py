@@ -42,11 +42,6 @@ def generate_launch_description():
     ref_detect = IncludeLaunchDescription(PythonLaunchDescriptionSource(
         [os.path.join(get_package_share_directory('ref_detect'), 'launch', 'ref.launch.py')]))
 
-    joint_state_publisher = ExecuteProcess(
-        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
-             'joint_state_broadcaster'],
-        output='screen',
-    )
     ign_spawn = Node(
         package='ros_gz_sim',
         executable='create',
@@ -81,38 +76,42 @@ def generate_launch_description():
     #     ]
     # )
     # event
-    spawn_joint_state_publisher = RegisterEventHandler(  # type: ignore
-        OnProcessStart(
-            target_action=robot_state_publisher,
-            on_start=[
-                joint_state_publisher
-            ]
-        )
-    )
     spawn_cmd_move = RegisterEventHandler(
         OnProcessStart(
-            target_action=joint_state_publisher,
+            target_action=robot_state_publisher,
             on_start=[cmd_move]
         )
     )
     spawn_joint_controller = RegisterEventHandler(
         OnProcessStart(
-            target_action=robot_state_publisher,
-            on_start=[ExecuteProcess(
-                cmd=['ros2', 'control', 'load_controller',
-                     '--set-state', 'active', 'velocity_controller'],
-                output='screen'
-            ), ExecuteProcess(
-                cmd=['ros2', 'control', 'load_controller',
-                     '--set-state', 'active', 'position_controller'],
-                output='screen'
-            )]
+            target_action=cmd_move,
+            on_start=[
+                ExecuteProcess(
+                    cmd=['ros2', 'control', 'load_controller',
+                         '--set-state', 'active', 'velocity_controller'],
+                    output='screen'
+
+                ), ExecuteProcess(
+                    cmd=['ros2', 'control', 'load_controller',
+                         '--set-state', 'active', 'position_controller'],
+                    output='screen'
+                ), ExecuteProcess(
+                    cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
+                         'joint_state_broadcaster'],
+                    output='screen',
+                )]
         )
     )
     spawn_robot_state_publisher = RegisterEventHandler(
         OnProcessStart(
             target_action=ign_spawn,
             on_start=[robot_state_publisher]
+        )
+    )
+    spawn_ign = RegisterEventHandler(
+        OnProcessStart(
+            target_action=bridge,
+            on_start=[ign_spawn]
         )
     )
     ld = LaunchDescription()
@@ -127,12 +126,11 @@ def generate_launch_description():
                           'launch', 'gz_sim.launch.py')]),
         launch_arguments=[('gz_args', [' -r -v 4 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
-    ld.add_action(spawn_joint_controller)
-    ld.add_action(spawn_joint_state_publisher)
-    ld.add_action(ign_spawn)
+    # ld.add_action(spawn_joint_controller)
+    ld.add_action(spawn_ign)
 
     ld.add_action(spawn_cmd_move)
-    # ld.add_action(ref_detect)
+    ld.add_action(ref_detect)
     # ld.add_action(robot_state_publisher)
 
     return ld

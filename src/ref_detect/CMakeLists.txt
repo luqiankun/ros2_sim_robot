@@ -5,6 +5,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE "Debug")
 add_compile_options(-std=c++17)
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -18,7 +19,7 @@ find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(Ceres REQUIRED)
 include_directories("/usr/include/eigen3")
-add_executable(ref_detect src/main.cc src/match.cc)
+add_executable(ref_detect src/main.cc src/match.cc src/extraction.cc)
 ament_target_dependencies(
   ref_detect
   rclcpp

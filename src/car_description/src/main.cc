@@ -18,7 +18,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Eigen>
-#include <filesystem>
 #include <fstream>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -241,6 +240,29 @@ class CarController : public rclcpp::Node {
 
       // Send the transformation
       tf_odom->sendTransform(t);
+      {
+        geometry_msgs::msg::TransformStamped map;
+        map.header.stamp = time;
+        map.header.frame_id = "map";
+        map.child_frame_id = "odom";
+
+        // Turtle only exists in 2D, thus we get x and y translation
+        // coordinates from the message and set the z coordinate to 0
+        map.transform.translation.x = 0;
+        map.transform.translation.y = 0;
+        map.transform.translation.z = 0;
+
+        // For the same reason, turtle can only rotate around one axis
+        // and this why we set rotation in x and y to 0 and obtain
+        // rotation in z axis from the message
+        tf2::Quaternion q;
+        q.setRPY(0, 0, 0);
+        map.transform.rotation.x = q.x();
+        map.transform.rotation.y = q.y();
+        map.transform.rotation.z = q.z();
+        map.transform.rotation.w = q.w();
+        tf_odom->sendTransform(map);
+      }
       nav_msgs::msg::Odometry odom;
       odom.header.stamp = time;
       odom.header.frame_id = "odom";
