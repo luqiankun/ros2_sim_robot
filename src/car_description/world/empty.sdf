@@ -1222,7 +1222,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -1397,7 +1397,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -1567,7 +1567,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -1737,7 +1737,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -1907,7 +1907,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -2077,7 +2077,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -2247,7 +2247,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -2417,7 +2417,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -2587,7 +2587,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -2757,7 +2757,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -2927,7 +2927,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -3097,7 +3097,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -3267,7 +3267,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -3437,7 +3437,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -3607,7 +3607,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -3777,7 +3777,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -3947,7 +3947,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -4117,7 +4117,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -4287,7 +4287,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -4457,7 +4457,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -4627,7 +4627,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -4797,7 +4797,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -4967,7 +4967,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -5137,7 +5137,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -5307,7 +5307,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -5477,7 +5477,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
@@ -5647,7 +5647,7 @@
         <gravity>1</gravity>
       </link>
       <link name='link_ganzi'>
-        <pose  >0 0 0.22 0 -0 0</pose>
+        <pose  >0 0  0.022 0 -0 0</pose>
         <inertial>
           <mass>2.39</mass>
           <inertia>
