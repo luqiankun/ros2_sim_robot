@@ -18,6 +18,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <eigen3/Eigen/Eigen>
+#include <filesystem>
 #include <fstream>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -340,10 +341,10 @@ class RefPostMap {
       RCLCPP_ERROR(node->get_logger(), "parse xml failed: %s",
                    result.description());
     } else {
-      // std::filesystem::path path("map_post.txt");
-      // if (!std::filesystem::exists(path)) {
-      //   std::filesystem::
-      // }
+      std::filesystem::path path("map_post.txt");
+      if (!std::filesystem::exists(path)) {
+        return;
+      }
       std::fstream file;
       file.open("map_post.txt",
                 std::iostream::trunc | std::iostream::in | std::iostream::out);
