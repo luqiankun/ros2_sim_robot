@@ -129,8 +129,8 @@ def generate_launch_description():
     # ld.add_action(spawn_joint_controller)
     ld.add_action(spawn_ign)
 
-    ld.add_action(spawn_cmd_move)
-    ld.add_action(ref_detect)
+    # ld.add_action(spawn_cmd_move)
+    # ld.add_action(ref_detect)
     # ld.add_action(robot_state_publisher)
 
     return ld

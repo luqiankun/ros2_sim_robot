@@ -11,12 +11,9 @@ controller_manager:
 velocity_controller:
   ros__parameters:
     joints:
-      # - MR-Buggy3/FrontRightWheelJoint # 右前轮
-      # - MR-Buggy3/FrontLeftWheelJoint #左前轮
-      - MR-Buggy3/RearRightWheelJoint # 右后轮
-      - MR-Buggy3/RearLeftWheelJoint # 左后轮
+      - main_wheel_joint # 主驱动轮
 position_controller:
   ros__parameters:
     joints:
-      - MR-Buggy3/FrontRightWheelSteeringJoint # 右前转向
-      - MR-Buggy3/FrontLeftWheelSteeringJoint # 左前转向
+      - fork_joint #叉齿
+      - main_wheel_base_joint #舵轮轴
