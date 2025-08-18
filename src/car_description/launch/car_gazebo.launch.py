@@ -82,6 +82,12 @@ def generate_launch_description():
             on_start=[driver]
         )
     )
+
+    move_ctrl=Node(
+        package="move_ctrl",
+        executable="move_node",
+    )
+
     spawn_joint_controller = RegisterEventHandler(
         OnProcessStart(
             target_action=driver,
@@ -124,12 +130,14 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             [os.path.join(get_package_share_directory('ros_gz_sim'),
                           'launch', 'gz_sim.launch.py')]),
-        launch_arguments=[('gz_args', [' -r -v 4 ', world])]),)
+        launch_arguments=[('gz_args', [' -r -v 1 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
     # ld.add_action(spawn_joint_controller)
     ld.add_action(spawn_ign)
 
     ld.add_action(spawn_driver)
+    ld.add_action(move_ctrl)
+
     # ld.add_action(ref_detect)
     # ld.add_action(robot_state_publisher)
 
