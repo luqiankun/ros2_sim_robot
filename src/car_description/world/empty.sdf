@@ -33,6 +33,8 @@
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics">
       <use_attach_mesh_shape_feature>true</use_attach_mesh_shape_feature>
     </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
+    </plugin>
 
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>

@@ -2,6 +2,8 @@
 #define __DRIVER_H_
 #include <can_msgs/msg/frame.hpp>
 #include <controller_manager_msgs/srv/list_controllers.hpp>
+#include <controller_manager_msgs/srv/load_controller.hpp>
+#include <controller_manager_msgs/srv/switch_controller.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/float64.hpp>
@@ -52,10 +54,19 @@ class Driver {
   void add_motor(int cannode_id, const std::string& link_name);
   void timer_callback();
   void start();
+  bool load_controller(const std::string&);
+  bool configure_controller(std::string);
+  bool switch_controller(std::string, std::string);
+  bool is_controller_loaded(std::string);
+  bool is_controller_configured(std::string);
 
  private:
   rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr
       get_controllers_;
+  rclcpp::Client<controller_manager_msgs::srv::SwitchController>::SharedPtr
+      switch_controller_;
+  rclcpp::Client<controller_manager_msgs::srv::LoadController>::SharedPtr
+      load_controller_;
   rclcpp::Node::SharedPtr node_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr
       pub_motor_position_;

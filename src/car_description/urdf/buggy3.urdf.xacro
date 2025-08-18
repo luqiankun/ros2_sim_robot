@@ -512,5 +512,23 @@
         </sensor>
     </gazebo>
 
+    <gazebo reference="base_link_joint">
+        <sensor name="imu" type="imu">
+            <always_on>true</always_on>
+            <update_rate>200</update_rate>
+            <visualize>true</visualize>
+            <topic>imu</topic>
+            <imu>
+                <orientation_reference_frame>
+                GRAV_UP
+                </orientation_reference_frame>
+                <grav_dir_x parent_frame="base_link_joint">
+                1 0 0
+                </grav_dir_x>
+            </imu>
+        </sensor>
+
+    </gazebo>
+
 
 </robot>

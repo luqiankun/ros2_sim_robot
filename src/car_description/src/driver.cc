@@ -1,5 +1,7 @@
 #include "../include/driver.hpp"
 
+#include <builtin_interfaces/msg/duration.hpp>
+#include <controller_manager_msgs/srv/configure_controller.hpp>
 void Motor::joint_state_callback(
     const sensor_msgs::msg::JointState::SharedPtr msg) {
   auto& names = msg->name;
@@ -79,11 +81,162 @@ void Driver::add_motor(int cannode_id, const std::string& link_name) {
   motors_.push_back(std::make_shared<Motor>(node_, cannode_id, link_name));
 }
 
+bool Driver::is_controller_loaded(std::string name) {
+  auto request = std::make_shared<
+      controller_manager_msgs::srv::ListControllers::Request>();
+  auto future = get_controllers_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(node_->get_node_base_interface(),
+                                         future) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    auto responce = future.get();
+    for (auto& x : responce->controller) {
+      if (x.name == name) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool Driver::load_controller(const std::string& name) {
+  if (is_controller_loaded(name)) {
+    return true;
+  }
+  auto request =
+      std::make_shared<controller_manager_msgs::srv::LoadController::Request>();
+  request->name = name;
+  auto future = load_controller_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(node_->get_node_base_interface(),
+                                         future) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    auto response = future.get();
+    if (response->ok) {
+      return true;
+    } else {
+      RCLCPP_ERROR(node_->get_logger(), "加载失败 %s", name.c_str());
+      return false;
+    }
+  }
+  return false;
+}
+bool Driver::is_controller_configured(std::string name) {
+  auto request = std::make_shared<
+      controller_manager_msgs::srv::ListControllers::Request>();
+  auto future = get_controllers_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(node_->get_node_base_interface(),
+                                         future) ==
+      rclcpp::FutureReturnCode::SUCCESS) {
+    auto responce = future.get();
+    for (auto& x : responce->controller) {
+      if (x.name == name) {
+        if (x.state != "unconfigured")
+          return true;
+        else
+          return false;
+      }
+    }
+  }
+  return false;
+}
+
+bool Driver::configure_controller(std::string name) {
+  if (is_controller_configured(name)) return true;
+  auto config =
+      node_->create_client<controller_manager_msgs::srv::ConfigureController>(
+          "/controller_manager/configure_controller");
+  config->wait_for_service();
+  auto req = std::make_shared<
+      controller_manager_msgs::srv::ConfigureController::Request>();
+  req->name = name;
+  auto ret = config->async_send_request(req);
+  rclcpp::spin_until_future_complete(node_->get_node_base_interface(), ret);
+  if (ret.get()->ok) {
+    return true;
+  } else {
+    RCLCPP_ERROR(node_->get_logger(), "无法开启控制器: %s", name.c_str());
+    return false;
+  }
+}
+bool Driver::switch_controller(std::string name, std::string type) {
+  auto request = std::make_shared<
+      controller_manager_msgs::srv::SwitchController::Request>();
+  if (type == "activate") {
+    request->activate_controllers.push_back(name);
+  } else if (type == "deactivate") {
+    request->deactivate_controllers.push_back(name);
+  } else {
+    return false;
+  }
+  request->timeout.sec = 10;
+  request->strictness = request->BEST_EFFORT;
+  auto fu = switch_controller_->async_send_request(request);
+  auto ret =
+      rclcpp::spin_until_future_complete(node_->get_node_base_interface(), fu);
+  if (ret == rclcpp::FutureReturnCode::SUCCESS) {
+    auto response = std::shared_ptr<
+        controller_manager_msgs::srv::SwitchController::Response>(
+        new controller_manager_msgs::srv::SwitchController::Response);
+    *response = *fu.get();
+    if (response->ok) {
+      return true;
+    } else {
+      RCLCPP_ERROR(node_->get_logger(), "切换失败");
+      return false;
+    }
+  } else {
+    return false;
+  }
+}
+
 void Driver::start() {
   get_controllers_ =
       node_->create_client<controller_manager_msgs::srv::ListControllers>(
           "/controller_manager/list_controllers");
   get_controllers_->wait_for_service();
+  load_controller_ =
+      node_->create_client<controller_manager_msgs::srv::LoadController>(
+          "/controller_manager/load_controller");
+  load_controller_->wait_for_service();
+  switch_controller_ =
+      node_->create_client<controller_manager_msgs::srv::SwitchController>(
+          "/controller_manager/switch_controller");
+  switch_controller_->wait_for_service();
+  if (!load_controller("position_controller")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法加载position_controller控制器");
+    return;
+  }
+
+  if (!load_controller("velocity_controller")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法加载velocity_controller控制器");
+    return;
+  }
+  if (!load_controller("joint_state_broadcaster")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法加载joint_state_broadcaster控制器");
+    return;
+  }
+  if (!configure_controller("position_controller")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法配置position_controller控制器");
+  }
+  if (!configure_controller("velocity_controller")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法配置velocity_controller控制器");
+    return;
+  }
+  if (!configure_controller("joint_state_broadcaster")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法配置joint_state_broadcaster控制器");
+    return;
+  }
+  if (!switch_controller("position_controller", "activate")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法开启position_controller控制器");
+    return;
+  }
+  if (!switch_controller("velocity_controller", "activate")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法开启velocity_controller控制器");
+    return;
+  }
+  if (!switch_controller("joint_state_broadcaster", "activate")) {
+    RCLCPP_ERROR(node_->get_logger(), "无法开启joint_state_broadcaster控制器");
+    return;
+  }
   auto request = std::make_shared<
       controller_manager_msgs::srv::ListControllers::Request>();
   get_controllers_->async_send_request(
@@ -110,7 +263,8 @@ void Driver::start() {
             }
           }
         }
-        RCLCPP_INFO(node_->get_logger(), "get_controller success");
+        RCLCPP_INFO(node_->get_logger(), "get_controller success %ld  %ld",
+                    pose_controller_map.size(), vel_controller_map.size());
         pub_motor_velocity_ =
             node_->create_publisher<std_msgs::msg::Float64MultiArray>(
                 velocity_topic, 10);

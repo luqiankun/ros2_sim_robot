@@ -62,7 +62,8 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-            '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan'
+            '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+            '/imu@sensor_msgs/msg/Imu[ignition.msgs.IMU',
         ],
         output='screen'
     )
@@ -125,7 +126,7 @@ def generate_launch_description():
                           'launch', 'gz_sim.launch.py')]),
         launch_arguments=[('gz_args', [' -r -v 4 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
-    ld.add_action(spawn_joint_controller)
+    # ld.add_action(spawn_joint_controller)
     ld.add_action(spawn_ign)
 
     ld.add_action(spawn_driver)
