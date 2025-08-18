@@ -17,3 +17,14 @@ position_controller:
     joints:
       - fork_joint #叉齿
       - main_wheel_base_joint #舵轮轴
+    gains:
+      main_wheel_base_joint:
+        p: 60
+        d: 1
+        i: 4
+        i_clamp: 1.0
+      fork_joint:
+        p: 30
+        d: 0
+        i: 0
+        i_clamp: 1.0

@@ -49,13 +49,12 @@ def generate_launch_description():
         arguments=['-string', doc.toxml(), '-name', "car",
                    '-allow-renaming', 'true', '-z', '0.3'],
     )
-    cmd_move = Node(
+    driver = Node(
         package='car_description',
-        executable='move',
-        name='cmd_vel_control_demo',
+        executable='driver_node',
+        name='driver_motor_node',
         output="screen",
         parameters=[{'use_sim_time': use_sim_time}, {"model": world}],
-
     )
     # Bridge
     bridge = Node(
@@ -76,15 +75,15 @@ def generate_launch_description():
     #     ]
     # )
     # event
-    spawn_cmd_move = RegisterEventHandler(
+    spawn_driver = RegisterEventHandler(
         OnProcessStart(
             target_action=robot_state_publisher,
-            on_start=[cmd_move]
+            on_start=[driver]
         )
     )
     spawn_joint_controller = RegisterEventHandler(
         OnProcessStart(
-            target_action=cmd_move,
+            target_action=driver,
             on_start=[
                 ExecuteProcess(
                     cmd=['ros2', 'control', 'load_controller',
@@ -126,10 +125,10 @@ def generate_launch_description():
                           'launch', 'gz_sim.launch.py')]),
         launch_arguments=[('gz_args', [' -r -v 4 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
-    # ld.add_action(spawn_joint_controller)
+    ld.add_action(spawn_joint_controller)
     ld.add_action(spawn_ign)
 
-    # ld.add_action(spawn_cmd_move)
+    ld.add_action(spawn_driver)
     # ld.add_action(ref_detect)
     # ld.add_action(robot_state_publisher)
 
