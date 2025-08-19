@@ -12,6 +12,10 @@ find_package(geometry_msgs REQUIRED)
 find_package(can_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+
+
 
 add_executable(move_node src/move_node.cpp)
 target_include_directories(move_node PUBLIC
@@ -25,6 +29,8 @@ ament_target_dependencies(
   "can_msgs"
   "visualization_msgs"
   "nav_msgs"
+  "tf2"
+  "tf2_ros"
 )
 
 install(TARGETS move_node

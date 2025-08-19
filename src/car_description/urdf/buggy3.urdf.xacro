@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="MR-Buggy3">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ZC_CR">
     <material name="red">
         <color rgba="1 0.1 0.1 1"/>
     </material>
@@ -17,10 +17,15 @@
     </material>
     <!-- 底座 -->
     <link name="footbase">
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.4" rpy="-1.5707 0.0 -1.5707" />
             <mass value="100.0" />
-            <inertia ixx="20" ixy="0.0" ixz="0.0" iyy="12" iyz="0.0" izz="32" />
+            <inertia ixx="2.167" ixy="0.0" ixz="0.0" iyy="12.083" iyz="0.0" izz="14.083" />
+        </inertial> -->
+        <inertial auto="true">
+            <mass value="100.0" />
+            <origin xyz="0.0 0.0 0.4" rpy="-1.5707 0.0 -1.5707" />
+            <inertia ixx="2.167" ixy="0.0" ixz="0.0" iyy="12.083" iyz="0.0" izz="20" />
         </inertial>
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
@@ -30,6 +35,7 @@
             <material name="black" />
         </visual>
         <collision>
+            <density>7874</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/footbase.stl" scale="0.0010 0.0010 0.0010" />
@@ -38,10 +44,15 @@
     </link>
     <!-- 外壳 -->
     <link name="out_face">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
-            <mass value="300.0" />
-            <inertia ixx="48" ixy="0.0" ixz="0.0" iyy="58" iyz="0.0" izz="22" />
+            <mass value="20.0" />
+            <inertia ixx="1.933" ixy="0.0" ixz="0.0" iyy="2.733" iyz="0.0" izz="1.333" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="20.0" />
+            <inertia ixx="1.933" ixy="0.0" ixz="0.0" iyy="2.733" iyz="0.0" izz="1.333" />
         </inertial>
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
@@ -51,6 +62,7 @@
             <material name="yellow" />
         </visual>
         <collision>
+            <density>7874</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/outface.stl" scale="0.0010 0.0010 0.0010" />
@@ -59,11 +71,17 @@
     </link>
     <!-- 叉齿架 -->
     <link name="fork_frame">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
-            <mass value="200.0" />
-            <inertia ixx="40" ixy="0.0" ixz="0.0" iyy="12" iyz="0.0" izz="12" />
+            <mass value="80.0" />
+            <inertia ixx="28.83" ixy="0.0" ixz="0.0" iyy="26.83" iyz="0.0" izz="1.333" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="80.0" />
+            <inertia ixx="28.83" ixy="0.0" ixz="0.0" iyy="26.83" iyz="0.0" izz="1.333" />
         </inertial>
+
         <visual>
             <origin xyz="0 0.0 0.00" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
@@ -72,6 +90,8 @@
             <material name="black" />
         </visual>
         <collision>
+            <density>7874</density>
+
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/frame.stl" scale="0.0010 0.0010 0.0010" />
@@ -80,11 +100,17 @@
     </link>
     <!-- 叉齿 -->
     <link name="fork">
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+        <!-- <inertial>
+            <origin xyz="-0.9 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="46.0" />
             <inertia ixx="0.09" ixy="0.0" ixz="0.0" iyy="0.97" iyz="0.0" izz="1" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="-0.9 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="30.0" />
+            <inertia ixx="0.09" ixy="0.0" ixz="0.0" iyy="0.97" iyz="0.0" izz="1" />
         </inertial>
+
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
@@ -93,6 +119,7 @@
             <material name="gray" />
         </visual>
         <collision>
+            <density>7874</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/fork.stl" scale="0.0010 0.0010 0.0010" />
@@ -102,10 +129,16 @@
 
     <!-- 仿撞条 -->
     <link name="bar">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
-            <mass value="20.0" />
-            <inertia ixx="7" ixy="0.0" ixz="0.0" iyy="3" iyz="0.0" izz="5" />
+            <mass value="1.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042" />
+
         </inertial>
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
@@ -115,6 +148,7 @@
             <material name="black" />
         </visual>
         <collision>
+            <density>800</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/bar.stl" scale="0.0010 0.0010 0.0010" />
@@ -123,10 +157,15 @@
     </link>
     <!-- 避障雷达 -->
     <link name="avoid_lidar">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
-            <mass value="20.0" />
-            <inertia ixx="7" ixy="0.0" ixz="0.0" iyy="3" iyz="0.0" izz="5" />
+            <mass value="2.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042"/>
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042"/>
         </inertial>
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
@@ -136,6 +175,7 @@
             <material name="green" />
         </visual>
         <collision>
+            <density>1800</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/lidar.stl" scale="0.0010 0.0010 0.0010" />
@@ -145,9 +185,14 @@
 
     <!-- 屏幕 -->
     <link name="screen">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="5.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
             <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
         </inertial>
         <visual>
@@ -158,6 +203,7 @@
             <material name="black" />
         </visual>
         <collision>
+            <density>1100</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/screen.stl" scale="0.0010 0.0010 0.0010" />
@@ -166,10 +212,17 @@
     </link>
     <!-- 按钮 -->
     <link name="button">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="5.0" />
             <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+
+            <mass value="0.1" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+
         </inertial>
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
@@ -180,6 +233,8 @@
         </visual>
 
         <collision>
+            <density>400</density>
+
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/button.stl" scale="0.0010 0.0010 0.0010" />
@@ -188,9 +243,14 @@
     </link>
     <!-- 充电口 -->
     <link name="charge">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="5.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
             <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
         </inertial>
         <visual>
@@ -201,6 +261,8 @@
             <material name="green" />
         </visual>
         <collision>
+            <density>7874</density>
+
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/charge.stl" scale="0.0010 0.0010 0.0010" />
@@ -209,10 +271,16 @@
     </link>
     <!-- 光通信口 -->
     <link name="sun">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="5.0" />
             <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+
         </inertial>
         <visual>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
@@ -222,6 +290,7 @@
             <material name="green" />
         </visual>
         <collision>
+            <density>7874</density>
             <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <geometry>
                 <mesh filename="package://car_description/meshes/sun.stl" scale="0.0010 0.0010 0.0010" />
@@ -232,10 +301,15 @@
 
     <!-- 主舵轮 -->
     <link name="main_wheel_link">
-        <inertial>
+        <!-- <inertial>
             <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
             <mass value="6.79" />
-            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+            <inertia ixx="0.244" ixy="0.0" ixz="0.0" iyy="0.244" iyz="0.0" izz="0.172" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
+            <mass value="20.0" />
+            <inertia ixx="0.244" ixy="0.0" ixz="0.0" iyy="0.244" iyz="0.0" izz="0.172" />
         </inertial>
         <visual>
             <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
@@ -252,6 +326,7 @@
             </geometry>
         </visual>
         <collision>
+            <density>4000</density>
             <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
             <geometry>
                 <cylinder radius="0.105" length="0.075"/>
@@ -259,11 +334,8 @@
             <surface>
                 <friction>
                     <ode>
-                        <mu>1.0</mu>
-                        <mu2>100</mu2>
-                        <fdir1>0 0 0</fdir1>
-                        <slip1>0.02</slip1>
-                        <slip2>0</slip2>
+                        <mu>10000000</mu>
+                        <mu2>10000000</mu2>
                     </ode>
                 </friction>
             </surface>
@@ -271,10 +343,16 @@
     </link>
     <!-- 左前轮 -->
     <link name="left_wheel_link">
-        <inertial>
-            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+        <!-- <inertial>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="30.0" />
-            <inertia ixx="10" ixy="0.0" ixz="0.0" iyy="12" iyz="0.0" izz="12" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
         </inertial>
         <visual>
             <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
@@ -284,6 +362,7 @@
             <material name="gray"/>
         </visual>
         <collision>
+            <density>4000</density>
             <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
             <geometry>
                 <mesh filename="package://car_description/meshes/frontwheel.stl" scale="0.0010 0.0010 0.0010" />
@@ -291,11 +370,8 @@
             <surface>
                 <friction>
                     <ode>
-                        <mu>1.0</mu>
-                        <mu2>100</mu2>
-                        <fdir1>0 0 0</fdir1>
-                        <slip1>0.02</slip1>
-                        <slip2>0</slip2>
+                        <mu>10000000</mu>
+                        <mu2>10000000</mu2>
                     </ode>
                 </friction>
             </surface>
@@ -304,10 +380,16 @@
     </link>
     <!-- 右前轮 -->
     <link name="right_wheel_link">
-        <inertial>
-            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+        <!-- <inertial>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
             <mass value="30.0" />
-            <inertia ixx="10" ixy="0.0" ixz="0.0" iyy="12" iyz="0.0" izz="12" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+
         </inertial>
         <visual>
             <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
@@ -317,6 +399,7 @@
             <material name="gray"/>
         </visual>
         <collision>
+            <density>4000</density>
             <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
             <geometry>
                 <mesh filename="package://car_description/meshes/frontwheel.stl" scale="0.0010 0.0010 0.0010" />
@@ -324,11 +407,8 @@
             <surface>
                 <friction>
                     <ode>
-                        <mu>1.0</mu>
-                        <mu2>100</mu2>
-                        <fdir1>0 0 0</fdir1>
-                        <slip1>0.02</slip1>
-                        <slip2>0</slip2>
+                        <mu>10000000</mu>
+                        <mu2>10000000</mu2>
                     </ode>
                 </friction>
             </surface>
@@ -339,7 +419,7 @@
         <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
             <mass value="3.0" />
-            <inertia ixx="0.054" ixy="0.0" ixz="0.0" iyy="0.252" iyz="0.0" izz="0.252" />
+            <inertia ixx="0.0158" ixy="0.0" ixz="0.0" iyy="0.0158" iyz="0.0" izz="0.005" />
         </inertial>
     </link>
     <!-- base_link -->
@@ -412,40 +492,40 @@
         <parent link="footbase"/>
         <child link="fork"/>
         <axis xyz="0.0 0.0 1"/>
-        <limit lower="-1" upper="3.0" effort="3000.0" velocity="1.0"/>
-        <dynamics damping="100.0" friction="10"/>
+        <limit lower="-0.1" upper="3.0" effort="3000.0" velocity="1.0"/>
+        <dynamics damping="10.0" friction="50.0"/>
     </joint>
     <joint name="main_wheel_base_joint" type="continuous">
-        <origin xyz="0.21 0.0 0.04" rpy="0.0 0.0 0.0"/>
+        <origin xyz="0.25 0.0 0.05" rpy="0.0 0.0 0.0"/>
         <parent link="footbase"/>
         <child link="main_wheel_base_link"/>
         <axis xyz="0.0 0.0 1"/>
-        <limit effort="500.0" velocity="1"/>
-        <dynamics damping="1.0" friction="1"/>
+        <limit effort="500.0" velocity="2"/>
+        <dynamics damping="1.0" friction="30"/>
     </joint>
     <joint name="main_wheel_joint" type="continuous">
         <origin xyz="0 0.0 0" rpy="0.0 0.0 0.0"/>
         <parent link="main_wheel_base_link"/>
         <child link="main_wheel_link"/>
         <axis xyz="0.0 1.0 0.0"/>
-        <limit effort="1600.0" velocity="20.0"/>
-        <dynamics damping="4.0" friction="10.0" friction2="100.0"/>
+        <limit effort="700.0" velocity="200.0"/>
+        <dynamics damping="0.1" friction="1.0"/>
     </joint>
     <joint name="left_wheel_joint" type="continuous">
         <origin xyz="-1.01 0.2525 -0.015" rpy="0.0 0.0 1.5707"/>
         <parent link="footbase"/>
         <child link="left_wheel_link"/>
         <axis xyz="1.0 0.0 0.0"/>
-        <limit lower="-100" upper="100.0" effort="20.0" velocity="2.0"/>
-        <dynamics damping="1.0" friction="10.0" friction2="100.0"/>
+        <limit effort="200.0" velocity="200.0"/>
+        <dynamics damping="0.1" friction="1.0" />
     </joint>
     <joint name="right_wheel_joint" type="continuous">
         <origin xyz="-1.01 -0.2525 -0.015" rpy="0.0 0.0 1.5707"/>
         <parent link="footbase"/>
         <child link="right_wheel_link"/>
         <axis xyz="1.0 0.0 0.0"/>
-        <limit lower="-100" upper="100.0" effort="20.0" velocity="2.0"/>
-        <dynamics damping="1.0" friction="10.0" friction2="100.0"/>
+        <limit effort="200.0" velocity="200.0"/>
+        <dynamics damping="0.1" friction="1.0"/>
     </joint>
     <joint name="base_link_joint" type="fixed">
         <origin xyz="-1.01 0 0" rpy="0.0 0.0 0"/>
@@ -547,7 +627,7 @@
     <gazebo reference="base_link">
         <sensor name="imu" type="imu">
             <always_on>true</always_on>
-            <update_rate>200</update_rate>
+            <update_rate>1000</update_rate>
             <visualize>true</visualize>
             <topic>imu</topic>
             <imu>

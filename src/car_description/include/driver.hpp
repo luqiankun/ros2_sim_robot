@@ -62,6 +62,8 @@ class Driver {
 
  private:
   rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr
+      list_controllers_;
+  rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr
       get_controllers_;
   rclcpp::Client<controller_manager_msgs::srv::SwitchController>::SharedPtr
       switch_controller_;

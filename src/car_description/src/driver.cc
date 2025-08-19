@@ -11,7 +11,9 @@ void Motor::joint_state_callback(
   if (it != names.end()) {
     index = std::distance(names.begin(), it);
     position_ = positions[index] / M_PI / 2.0;
-    velocity_ = velocities[index] / M_PI / 2.0 * 60;  // rad/s->rpm
+    velocity_ = velocities[index] / M_PI / 2 * 60;  // rad/s->rpm
+  } else {
+    return;
   }
   can_msgs::msg::Frame send_msg;
   send_msg.id = TPDO3 + cannode_id_;
@@ -283,9 +285,9 @@ int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("car_description_driver");
   auto driver = std::make_shared<Driver>(node);
-  driver->add_motor(0, "main_wheel_joint");
-  driver->add_motor(1, "fork_joint");
-  driver->add_motor(2, "main_wheel_base_joint");
+  driver->add_motor(1, "main_wheel_joint");
+  driver->add_motor(2, "fork_joint");
+  driver->add_motor(3, "main_wheel_base_joint");
   driver->start();
   rclcpp::executors::MultiThreadedExecutor exe;
   exe.add_node(node);

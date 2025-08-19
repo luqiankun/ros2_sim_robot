@@ -130,7 +130,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             [os.path.join(get_package_share_directory('ros_gz_sim'),
                           'launch', 'gz_sim.launch.py')]),
-        launch_arguments=[('gz_args', [' -r -v 1 ', world])]),)
+        launch_arguments=[('gz_args', ['-r -v 4 ', world])]),)
     ld.add_action(spawn_robot_state_publisher)
     # ld.add_action(spawn_joint_controller)
     ld.add_action(spawn_ign)
