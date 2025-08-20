@@ -45,37 +45,39 @@ void MoveCtrl::cmd_vel_callback(
   } else {
     // 普通
     Eigen::Vector2f normal_vel{1, 0};
-    normal_vel.normalize();
+    normal_vel = normal_vel.normalized() * vel;
     Eigen::Vector2f Radius{0, 1};
-    Eigen::Rotation2Df rot;
-    if (omega < 0.0) {
-      // 右转
-      rot = Eigen::Rotation2Df(-M_PI / 2);
-      Radius = rot * normal_vel;
-    } else {
-      // 左转
-      rot = Eigen::Rotation2Df(M_PI / 2);
-      Radius = rot * normal_vel;
-    }
+    Radius = Eigen::Rotation2Df(M_PI / 2) * normal_vel;
+    Radius = Radius.normalized() * radius;
     if (Radius.norm() < sqrt(pow(m_chassis.x, 2) + pow(m_chassis.y, 2))) {
       Radius =
           Radius.normalized() * sqrt(pow(m_chassis.x, 2) + pow(m_chassis.y, 2));
     }
-    Radius.normalize();
-    Radius *= radius;
     Eigen::Vector<float, 2> wheel_pos{m_chassis.x, m_chassis.y};
     Eigen::Vector<float, 2> RadiusWheel = Radius - wheel_pos;
-    Eigen::Vector<float, 2> normalWheel = rot.inverse() * RadiusWheel;
-    normalWheel = normalWheel.normalized();
+    Eigen::Vector<float, 2> normalWheel =
+        Eigen::Rotation2Df(-M_PI / 2) * RadiusWheel;
+    normalWheel = (normalWheel).normalized();
     float cos_angle = (normalWheel.dot(normal_vel)) /
                       ((normalWheel.norm() * normal_vel.norm()) + 1e-8);
     float wheel_angle = fabs(acos(cos_angle));
-    float wheel_vel = (omega + 1e-8) * RadiusWheel.norm();
+    float wheel_vel = fabs((omega + 1e-8) * RadiusWheel.norm());
+    RCLCPP_INFO_STREAM(node->get_logger(),
+                       Radius << " " << RadiusWheel << " " << normalWheel << " "
+                              << normal_vel << " " << wheel_angle);
     if (wheel_angle > M_PI / 2) {
-      normalWheel *= -1;
-      wheel_vel *= -1;
+      // normalWheel *= -1;
+      normalWheel = -normalWheel;
     }
-    wheel_angle = std::atan(normalWheel[1] / normalWheel[0]);
+    wheel_angle = std::atan2(normalWheel[1], normalWheel[0]);  // -pi ~pi
+    // 防止舵轮角度超出范围(+-90)
+    if (wheel_angle > M_PI / 2) {
+      wheel_angle = wheel_angle - M_PI;
+      wheel_vel = -wheel_vel;
+    } else if (wheel_angle < -M_PI / 2) {
+      wheel_angle = wheel_angle + M_PI;
+      wheel_vel = -wheel_vel;
+    }
     rpm = wheel_vel / m_chassis.encoder_resolution / 2.0 / M_PI /
           m_chassis.wheel_radius * 60.0;  // m_spped;
     angle = wheel_angle / m_chassis.angle_encoder_resolution;
@@ -109,7 +111,7 @@ void Odomtry::timer_callback() {
   float v = omega * radius;
   if (first_odometry) {
     first_odometry = false;
-    last_time =node->now();
+    last_time = node->now();
   } else {
     auto now = node->now();
     auto duration = (now - last_time).seconds();
@@ -118,9 +120,9 @@ void Odomtry::timer_callback() {
     m_x += v_x * duration;
     m_y += v_y * duration;
     m_theta += omega * duration;
-    RCLCPP_INFO(node->get_logger(), "v_x: %f, v_y: %f", v_x, v_y);
-    RCLCPP_INFO(node->get_logger(), "m_x: %f, m_y: %f", m_x, m_y);
-    RCLCPP_INFO(node->get_logger(), "m_theta: %f", m_theta);
+    // RCLCPP_INFO(node->get_logger(), "v_x: %f, v_y: %f", v_x, v_y);
+    // RCLCPP_INFO(node->get_logger(), "m_x: %f, m_y: %f", m_x, m_y);
+    // RCLCPP_INFO(node->get_logger(), "m_theta: %f", m_theta);
     last_time = now;
     while (m_theta > M_PI) m_theta -= 2 * M_PI;
     while (m_theta <= -M_PI) m_theta += 2 * M_PI;
