@@ -58,7 +58,7 @@ bool association(std::vector<PostPoint> &input, std::vector<Post> &out) {
     for (auto &x : it->second) {
       p.points.push_back(input[x]);
     }
-    if (p.points.size() >= 3) out.push_back(p);
+    if (p.points.size() >= 3 && p.points.size() <= 30) out.push_back(p);
   }
   return true;
 }

@@ -9,7 +9,6 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "./extracion.hpp"
-#include "match.hpp"
 /**
  * @brief 提取的反光柱
  *
@@ -107,8 +106,9 @@ class RefDetecter {
     std::vector<Post> temp_posts;
     std::vector<PostPoint> scan_points;
     extrac(msg, scan_points);
-    association(scan_points, temp_posts);
     // 高反点关联
+    association(scan_points, temp_posts);
+    // ceres 拟合
     fit_post(temp_posts, fit_posts);
     // auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(
     //               std::chrono::system_clock::now() - st)
@@ -134,13 +134,13 @@ class RefDetecter {
       auto feature_points = cur_feature_points;
       int num = 0;
       for (auto& graph : feature_graph) {
-        float r{0.1}, g{0.5}, b{0.5};
+        float r{1}, g{0.5}, b{0.5};
         // r = static_cast<float>((rand() % (255))) / 255;
         // g = static_cast<float>((rand() % (255))) / 255;
         // b = static_cast<float>((rand() % (255))) / 255;
         for (auto& x : graph.second) {
           visualization_msgs::msg::Marker marker;
-          marker.header.frame_id = "MR-Buggy3/Base";
+          marker.header.frame_id = "main_2d_lidar_link";
           // marker.header.stamp = time_now->now();
           marker.lifetime.sec = 0;
           marker.lifetime.nanosec = 101000000;
@@ -149,6 +149,7 @@ class RefDetecter {
           marker.color.g = g;
           marker.color.b = b;
           marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+          marker.action = visualization_msgs::msg::Marker::ADD;
           marker.id = num++;
           geometry_msgs::msg::Point st;
           geometry_msgs::msg::Point ed;
@@ -204,12 +205,15 @@ class RefDetecter {
           RCLCPP_ERROR(node->get_logger(), "******************************");
           break;
         }
-        if (fit_post.radius > 0.07) {
+        if (fit_post.radius > 0.04 || fit_post.radius < 0.03) {
           exist = true;
           break;
         }
       }
       if (!exist) {
+        // RCLCPP_INFO(node->get_logger(),
+        //             "fit_post index:%d x:%f y%f radius: % f ", x.index, X, Y,
+        //             sqr);
         temp_fit_posts.push_back(fit_post);
       }
       // RCLCPP_INFO(node->get_logger(), "fit_post index:%d x:%f y%f radius: % f
@@ -253,9 +257,6 @@ class RefDetecter {
   }
 
   RefDetecter(rclcpp::Node::SharedPtr n) : node(n) {
-    node->declare_parameter(
-        "map_file",
-        "/home/luqk/ros2/sim_car/src/ref_detect/config/map_post.txt");
     clock = node->create_subscription<rosgraph_msgs::msg::Clock>(
         "/clock", 1, [&](rosgraph_msgs::msg::Clock::ConstSharedPtr msg) {
           time_now = msg->clock;
@@ -268,10 +269,6 @@ class RefDetecter {
     publisher_fit =
         node->create_publisher<visualization_msgs::msg::MarkerArray>(
             "/feature_graph_fit", 1);
-    auto path = node->get_parameter("map_file").as_string();
-    assert(!path.empty());
-    // cells = std::make_shared<Cells>(path);
-    // RCLCPP_INFO(node->get_logger(), "%zu", cells->edges.size());
     timer = node->create_wall_timer(std::chrono::milliseconds(100), [&] {
       //
       visualization_msgs::msg::MarkerArray markers;
@@ -279,7 +276,7 @@ class RefDetecter {
       temp_fit_posts = fit_posts;
       for (auto& x : temp_fit_posts) {
         visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "MR-Buggy3/Base";
+        marker.header.frame_id = "main_2d_lidar_link";
         // marker.header.stamp = time_now;
         marker.lifetime.sec = 0;
         marker.lifetime.nanosec = 110000000;
@@ -324,7 +321,7 @@ inline bool InsertToFeatureGraph(
     std::vector<int>& feature_points_assigned_id,
     std::unordered_map<int, std::pair<double, double>>& feature_points,
     std::unordered_map<int, std::unordered_map<int, double>>& feature_graph) {
-  double const ceil_threshold = 3;
+  double const ceil_threshold = 50;
   int cnt = 0;
   for (auto& x : feature_points_wait_insert) {
     int fid = feature_points_assigned_id[cnt++];

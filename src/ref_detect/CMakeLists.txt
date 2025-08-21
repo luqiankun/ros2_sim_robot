@@ -19,7 +19,7 @@ find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(Ceres REQUIRED)
 include_directories("/usr/include/eigen3")
-add_executable(ref_detect src/main.cc src/match.cc src/extraction.cc)
+add_executable(ref_detect src/main.cc  src/extraction.cc)
 ament_target_dependencies(
   ref_detect
   rclcpp
@@ -46,7 +46,7 @@ endif()
 install(TARGETS ref_detect
 DESTINATION lib/${PROJECT_NAME}
 )
-install(DIRECTORY launch config
+install(DIRECTORY launch 
 DESTINATION share/${PROJECT_NAME}
 )
 ament_package()

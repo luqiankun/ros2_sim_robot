@@ -485,6 +485,12 @@
         <parent link="footbase"/>
         <child link="sun"/>
     </joint>
+    <joint name="base_link_joint" type="fixed">
+        <origin xyz="1.01 0 0" rpy="0.0 0.0 0"/>
+        <parent link="base_link"/>
+        <child link="footbase"/>
+        <axis xyz="0.0 0.0 0.0"/>
+    </joint>
 
 
     <joint name="fork_joint" type="prismatic">
@@ -492,7 +498,7 @@
         <parent link="footbase"/>
         <child link="fork"/>
         <axis xyz="0.0 0.0 1"/>
-        <limit lower="-0.1" upper="3.0" effort="3000.0" velocity="1.0"/>
+        <limit lower="0" upper="3.0" effort="3000.0" velocity="1.0"/>
         <dynamics damping="10.0" friction="50.0"/>
     </joint>
     <joint name="main_wheel_base_joint" type="continuous">
@@ -500,7 +506,7 @@
         <parent link="footbase"/>
         <child link="main_wheel_base_link"/>
         <axis xyz="0.0 0.0 1"/>
-        <limit effort="500.0" velocity="2"/>
+        <limit effort="500.0" velocity="0.3"/>
         <dynamics damping="1.0" friction="30"/>
     </joint>
     <joint name="main_wheel_joint" type="continuous">
@@ -527,21 +533,15 @@
         <limit effort="200.0" velocity="200.0"/>
         <dynamics damping="0.1" friction="1.0"/>
     </joint>
-    <joint name="base_link_joint" type="fixed">
-        <origin xyz="-1.01 0 0" rpy="0.0 0.0 0"/>
-        <parent link="footbase"/>
-        <child link="base_link"/>
-        <axis xyz="0.0 0.0 0.0"/>
-    </joint>
     <!-- ros2_control -->
     <ros2_control name="GazeboSimSystem" type="system">
         <hardware>
             <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </hardware>
         <joint name="fork_joint">
-            <command_interface name="position">
-                <param name="min">0</param>
-                <param name="max">3</param>
+            <command_interface name="velocity">
+                <param name="min">-10</param>
+                <param name="max">10</param>
             </command_interface>
             <state_interface name="position" />
             <state_interface name="velocity" />
@@ -594,14 +594,14 @@
             <lidar>
                 <scan>
                     <horizontal>
-                        <samples>3600</samples>
+                        <samples>16000</samples>
                         <resolution>1</resolution>
-                        <min_angle>-2.35619</min_angle>
-                        <max_angle>2.35619</max_angle>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
                     </horizontal>
                     <vertical>
                         <samples>1</samples>
-                        <resolution>0.01</resolution>
+                        <resolution>1</resolution>
                         <min_angle>0</min_angle>
                         <max_angle>0</max_angle>
                     </vertical>
@@ -627,14 +627,11 @@
     <gazebo reference="base_link">
         <sensor name="imu" type="imu">
             <always_on>true</always_on>
-            <update_rate>1000</update_rate>
+            <update_rate>200</update_rate>
             <visualize>true</visualize>
             <topic>imu</topic>
             <imu>
             </imu>
         </sensor>
-
     </gazebo>
-
-
 </robot>

@@ -21,11 +21,11 @@ def generate_launch_description():
     world = os.path.join(car_description, 'world', 'empty.sdf')
     doc = xacro.parse(open(xacro_f))
     xacro.process_doc(doc)
-    params = {'robot_description': doc.toxml()}
-    xacro_file = PathJoinSubstitution(
-        [car_description, 'urdf', 'car.urdf.xacro'])
-    config_file = PathJoinSubstitution(
-        [car_description, 'config', 'car.yaml'])
+    # params = {'robot_description': doc.toxml()}
+    # xacro_file = PathJoinSubstitution(
+    #     [car_description, 'urdf', 'car.urdf.xacro'])
+    # config_file = PathJoinSubstitution(
+    #     [car_description, 'config', 'car.yaml'])
     robot_state_publisher = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher', output='screen', parameters=[
             {'use_sim_time': use_sim_time}, {'robot_description': doc.toxml()},
@@ -56,6 +56,14 @@ def generate_launch_description():
         output="screen",
         parameters=[{'use_sim_time': use_sim_time}, {"model": world}],
     )
+    joystick = Node(
+        package='joy',
+        executable='joy_node',
+        name='joy_node',
+        output="screen",
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     # Bridge
     bridge = Node(
         package='ros_gz_bridge',
@@ -67,15 +75,6 @@ def generate_launch_description():
         ],
         output='screen'
     )
-    # controller = Node(
-    #     package="controller_manager",
-    #     executable="ros2_control_node",
-    #     parameters=[config_file],
-    #     remappings=[
-    #         ("~/robot_description", "/robot_description"),
-    #     ]
-    # )
-    # event
     spawn_driver = RegisterEventHandler(
         OnProcessStart(
             target_action=robot_state_publisher,
@@ -88,26 +87,6 @@ def generate_launch_description():
         executable="move_node",
     )
 
-    spawn_joint_controller = RegisterEventHandler(
-        OnProcessStart(
-            target_action=driver,
-            on_start=[
-                ExecuteProcess(
-                    cmd=['ros2', 'control', 'load_controller',
-                         '--set-state', 'active', 'velocity_controller'],
-                    output='screen'
-
-                ), ExecuteProcess(
-                    cmd=['ros2', 'control', 'load_controller',
-                         '--set-state', 'active', 'position_controller'],
-                    output='screen'
-                ), ExecuteProcess(
-                    cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
-                         'joint_state_broadcaster'],
-                    output='screen',
-                )]
-        )
-    )
     spawn_robot_state_publisher = RegisterEventHandler(
         OnProcessStart(
             target_action=ign_spawn,
@@ -137,8 +116,7 @@ def generate_launch_description():
 
     ld.add_action(spawn_driver)
     ld.add_action(move_ctrl)
-
-    # ld.add_action(ref_detect)
-    # ld.add_action(robot_state_publisher)
+    ld.add_action(joystick)
+    ld.add_action(ref_detect)
 
     return ld

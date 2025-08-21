@@ -4,6 +4,7 @@
 #include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2/convert.hpp>
 
+#include "../include/joy.hpp"
 #include "../include/move.hpp"
 MoveCtrl::MoveCtrl(rclcpp::Node::SharedPtr node, const Chassis& chassis)
     : m_chassis{chassis}, node{node} {
@@ -11,6 +12,118 @@ MoveCtrl::MoveCtrl(rclcpp::Node::SharedPtr node, const Chassis& chassis)
       "cmd_vel", 10,
       std::bind(&MoveCtrl::cmd_vel_callback, this, std::placeholders::_1));
   can_pub = node->create_publisher<can_msgs::msg::Frame>(can_tx_topic, 10);
+}
+ForkCtrl::ForkCtrl(rclcpp::Node::SharedPtr node, const Chassis& chassis)
+    : m_chassis{chassis}, node{node} {
+  can_pub = node->create_publisher<can_msgs::msg::Frame>(can_tx_topic, 10);
+  fork_vel_sub = node->create_subscription<std_msgs::msg::Float64>(
+      "fork_vel", 10,
+      std::bind(&ForkCtrl::fork_ctrl_callback, this, std::placeholders::_1));
+  auto handle_goal = [this](const rclcpp_action::GoalUUID& uuid,
+                            std::shared_ptr<const ForkMove::Goal> goal) {
+    RCLCPP_INFO(this->node->get_logger(), "Received goal request");
+    (void)uuid;
+    (void)goal;
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  };
+  auto handle_cancel =
+      [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<ForkMove>>
+                 goal) {
+        RCLCPP_INFO(this->node->get_logger(),
+                    "Received request to cancel goal");
+        (void)goal;
+        return rclcpp_action::CancelResponse::ACCEPT;
+      };
+  auto handle_accepted =
+      [this](const std::shared_ptr<rclcpp_action::ServerGoalHandle<ForkMove>>
+                 goal_handle) {
+        RCLCPP_INFO(this->node->get_logger(), "Accepted goal");
+        std::thread{
+            std::bind(&ForkCtrl::execute_callback, this, std::placeholders::_1),
+            goal_handle}
+            .detach();
+      };
+  fork_move_server = rclcpp_action::create_server<ForkMove>(
+      node, "fork_move", handle_goal, handle_cancel, handle_accepted);
+}
+
+void ForkCtrl::execute_callback(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<ForkMove>>
+        goal_handle) {
+  RCLCPP_INFO(this->node->get_logger(), "Executing goal");
+  auto result = std::make_shared<ForkMove::Result>();
+  auto feedback = std::make_shared<ForkMove::Feedback>();
+  float goal = goal_handle->get_goal()->target;
+
+  // PID 控制参数
+  float kp = 30.0;  // 比例系数
+  float ki = 0;     // 积分系数
+  float kd = 0.;    // 微分系数
+
+  float error = 0.0;
+  static float integral = 0.0;
+  static float prev_error = 0.0;
+
+  // 循环控制
+  rclcpp::Rate rate(10);  // 控制频率为 10Hz
+  while (rclcpp::ok()) {
+    float current = get_fork_hight();
+    error = goal - current;
+
+    // 检查是否收到取消请求
+    if (goal_handle->is_canceling()) {
+      result->result = -1;
+      goal_handle->canceled(result);
+      RCLCPP_INFO(this->node->get_logger(), "Goal canceled");
+      return;
+    }
+
+    // 计算 PID 输出
+    integral += error;
+    float derivative = error - prev_error;
+    float output = kp * error + ki * integral + kd * derivative;
+    prev_error = error;
+
+    // 发布控制量
+    can_msgs::msg::Frame pid_msg;
+    pid_msg.set__dlc(4);
+    pid_msg.set__id(RPDO4 + m_chassis.fork_can_node_id);
+    memcpy(pid_msg.data.data(), (void*)&output, 4);
+    can_pub->publish(pid_msg);
+
+    // 更新反馈
+    feedback->current = current;
+    goal_handle->publish_feedback(feedback);
+    // RCLCPP_INFO(this->node->get_logger(), "error: %f, integral: %f", error,
+    //             integral);
+    // 检查是否完成目标
+    if (fabs(error) < 0.001) {  // 误差小于 0.005 视为完成
+      result->result = 0;
+      goal_handle->succeed(result);
+      RCLCPP_INFO(this->node->get_logger(), "Goal succeeded");
+      // 发布控制量
+      can_msgs::msg::Frame pid_msg;
+      pid_msg.set__dlc(4);
+      pid_msg.set__id(RPDO4 + m_chassis.fork_can_node_id);
+      output = 0;
+      memcpy(pid_msg.data.data(), (void*)&output, 4);
+      can_pub->publish(pid_msg);
+      can_pub->publish(pid_msg);
+
+      return;
+    }
+
+    rate.sleep();
+  }
+}
+
+void ForkCtrl::fork_ctrl_callback(const std_msgs::msg::Float64::SharedPtr msg) {
+  float fork_vel_ = msg->data * 60 / (2 * M_PI);
+  can_msgs::msg::Frame fork_msg;
+  fork_msg.set__dlc(4);
+  fork_msg.set__id(RPDO4 + m_chassis.fork_can_node_id);
+  memcpy(fork_msg.data.data(), (void*)&fork_vel_, 4);
+  can_pub->publish(fork_msg);
 }
 
 void MoveCtrl::cmd_vel_callback(
@@ -35,6 +148,12 @@ void MoveCtrl::cmd_vel_callback(
       Eigen::Vector2f wheel_vel = rot * wheel_radius;
       float cos_angle = atan2(wheel_vel.y(), wheel_vel.x());
       float vel = fabs(omega * wheel_radius.norm());
+      // 如果舵轮角度和目标角度过大等待
+      auto cur_angle = get_wheel_angle();
+      if (fabs(cur_angle - cos_angle) > M_PI / 2) {
+        vel = 0;
+      }
+      //
       rpm = vel / m_chassis.encoder_resolution / 2.0 / M_PI /
             m_chassis.wheel_radius * 60.0;  // m_spped;
       angle = cos_angle / m_chassis.angle_encoder_resolution;
@@ -62,9 +181,6 @@ void MoveCtrl::cmd_vel_callback(
                       ((normalWheel.norm() * normal_vel.norm()) + 1e-8);
     float wheel_angle = fabs(acos(cos_angle));
     float wheel_vel = fabs((omega + 1e-8) * RadiusWheel.norm());
-    RCLCPP_INFO_STREAM(node->get_logger(),
-                       Radius << " " << RadiusWheel << " " << normalWheel << " "
-                              << normal_vel << " " << wheel_angle);
     if (wheel_angle > M_PI / 2) {
       // normalWheel *= -1;
       normalWheel = -normalWheel;
@@ -78,10 +194,17 @@ void MoveCtrl::cmd_vel_callback(
       wheel_angle = wheel_angle + M_PI;
       wheel_vel = -wheel_vel;
     }
+    // 如果舵轮角度和目标角度过大等待
+    auto cur_angle = get_wheel_angle();
+    if (fabs(cur_angle - wheel_angle) > M_PI / 2) {
+      wheel_vel = 0;
+    }
+    //
     rpm = wheel_vel / m_chassis.encoder_resolution / 2.0 / M_PI /
           m_chassis.wheel_radius * 60.0;  // m_spped;
     angle = wheel_angle / m_chassis.angle_encoder_resolution;
   }
+
   can_msgs::msg::Frame vel_msg;
   vel_msg.set__dlc(4);
   vel_msg.set__id(RPDO4 + m_chassis.vel_can_node_id);
@@ -178,15 +301,33 @@ void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
     vel = vel * 2 * M_PI / 60 * m_chassis.encoder_resolution *
           m_chassis.wheel_radius;
     wheel_vel = vel;
+  } else if (msg->id == TPDO3 + m_chassis.fork_can_node_id) {
+    // vel
+    float vel = 0;
+    memcpy((void*)&vel, msg->data.data(), 4);
+    vel = vel * 2 * M_PI / 60;
+    fork_vel = vel;
+    // pose
+    float pose = 0;
+    memcpy((void*)&pose, msg->data.data() + 4, 4);
+    pose = pose * 2 * M_PI;
+    fork_hight = pose;
   }
 }
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("test");
-  Chassis m_chassis{0.105, 1.26, 0, 1, M_PI * 2, 1, 3};
+  Chassis m_chassis{0.105, 1.26, 0, 1, M_PI * 2, 1, 3, 2};
   MoveCtrl move_ctrl(node, m_chassis);
   Odomtry odomtry(node, m_chassis);
+  move_ctrl.get_wheel_angle = std::bind(&Odomtry::get_wheel_angle, &odomtry);
+  move_ctrl.get_wheel_vel = std::bind(&Odomtry::get_wheel_vel, &odomtry);
+  auto fork = std::make_shared<ForkCtrl>(node, m_chassis);
+  fork->get_fork_hight = std::bind(&Odomtry::get_fork_hight, &odomtry);
+  fork->get_fork_vel = std::bind(&Odomtry::get_fork_vel, &odomtry);
+  auto joy = std::make_shared<JoyStick>(node);
+  joy->init();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
