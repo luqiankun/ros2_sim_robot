@@ -38,16 +38,13 @@ def generate_launch_description():
     #     output='screen',
     #     parameters=[{'use_sim_time': use_sim_time}],
     # )
-
-    ref_detect = IncludeLaunchDescription(PythonLaunchDescriptionSource(
-        [os.path.join(get_package_share_directory('ref_detect'), 'launch', 'ref.launch.py')]))
-
+    
     ign_spawn = Node(
         package='ros_gz_sim',
         executable='create',
         output="screen",
         arguments=['-string', doc.toxml(), '-name', "car",
-                   '-allow-renaming', 'true', '-z', '0.3'],
+                   '-allow-renaming', 'true', '-z', '2'],
     )
     driver = Node(
         package='car_description',
@@ -117,6 +114,6 @@ def generate_launch_description():
     ld.add_action(spawn_driver)
     ld.add_action(move_ctrl)
     ld.add_action(joystick)
-    ld.add_action(ref_detect)
+    # ld.add_action(ref_detect)
 
     return ld

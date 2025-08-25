@@ -225,11 +225,19 @@ Odomtry::Odomtry(rclcpp::Node::SharedPtr node, const Chassis& chassis)
       std::bind(&Odomtry::can_callback, this, std::placeholders::_1));
   timer = node->create_wall_timer(std::chrono::milliseconds(100),
                                   std::bind(&Odomtry::timer_callback, this));
+  set_odom_service = node->create_service<custom_interfaces::srv::SetOdom>(
+      "set_odom",
+      [&](custom_interfaces::srv::SetOdom::Request::SharedPtr req,
+          custom_interfaces::srv::SetOdom::Response::SharedPtr res) {
+        res->success = set_pos(req->x, req->y, req->theta);
+        return true;
+      });
+  first_odometry = true;
 }
 
 void Odomtry::timer_callback() {
-  float radius = m_chassis.x / (tan(wheel_angle) + 1e-8) + m_chassis.y;
-  float wheel_radius = m_chassis.x / (sin(wheel_angle) + 1e-8);
+  float radius = m_chassis.x / (tan(fabs(wheel_angle)) + 1e-8) + m_chassis.y;
+  float wheel_radius = m_chassis.x / (sin(fabs(wheel_angle)) + 1e-8);
   float omega = wheel_vel / wheel_radius;
   float v = omega * radius;
   if (first_odometry) {
@@ -274,8 +282,8 @@ void Odomtry::timer_callback() {
     {
       geometry_msgs::msg::TransformStamped transformStamped;
       transformStamped.header.stamp = node->now();
-      transformStamped.header.frame_id = "odom";
-      transformStamped.child_frame_id = "base_link";
+      transformStamped.header.frame_id = "map";
+      transformStamped.child_frame_id = "odom";
       transformStamped.transform.translation.x = m_x;
       transformStamped.transform.translation.y = m_y;
       transformStamped.transform.translation.z = 0.0;
@@ -283,6 +291,14 @@ void Odomtry::timer_callback() {
       tf_broadcaster.sendTransform(transformStamped);
     }
   }
+}
+
+bool Odomtry::set_pos(float x, float y, float theta) {
+  m_x = x;
+  m_y = y;
+  m_theta = theta;
+  first_odometry = true;
+  return true;
 }
 
 void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
@@ -294,6 +310,7 @@ void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
     while (angle > M_PI) angle -= 2 * M_PI;
     while (angle <= -M_PI) angle += 2 * M_PI;
     wheel_angle = angle;
+    std::cout << "angle: " << angle << std::endl;
   } else if (msg->id == TPDO3 + m_chassis.vel_can_node_id) {
     // vel
     float vel = 0;
@@ -301,6 +318,7 @@ void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
     vel = vel * 2 * M_PI / 60 * m_chassis.encoder_resolution *
           m_chassis.wheel_radius;
     wheel_vel = vel;
+    std::cout << "vel: " << vel << std::endl;
   } else if (msg->id == TPDO3 + m_chassis.fork_can_node_id) {
     // vel
     float vel = 0;

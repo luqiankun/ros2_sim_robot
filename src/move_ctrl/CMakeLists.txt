@@ -18,6 +18,7 @@ find_package(tf2_ros REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(custom_interfaces REQUIRED)
+find_package(std_srvs REQUIRED)
 
 
 add_executable(move_node src/move_node.cpp)
@@ -37,6 +38,7 @@ ament_target_dependencies(
   "rclcpp_action"
   "rclcpp_components"
   "custom_interfaces"
+  "std_srvs"
 )
 
 install(TARGETS move_node

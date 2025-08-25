@@ -4,13 +4,13 @@
 
 #include <can_msgs/msg/frame.hpp>
 #include <custom_interfaces/action/fork_move.hpp>
+#include <custom_interfaces/srv/set_odom.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <std_msgs/msg/float64.hpp>
-
-#include "rclcpp_action/rclcpp_action.hpp"
 const std::string can_tx_topic = "/can0_tx";
 const std::string can_rx_topic = "/can0_rx";
 const uint RPDO4 = 0x500;
@@ -48,6 +48,7 @@ class Odomtry {
   float get_wheel_angle() const { return wheel_angle; }
   float get_fork_vel() const { return fork_vel; }
   float get_fork_hight() const { return fork_hight; }
+  bool set_pos(float, float, float);
 
  private:
   float wheel_vel{0};
@@ -64,7 +65,9 @@ class Odomtry {
   tf2_ros::TransformBroadcaster tf_broadcaster;
   rclcpp::Subscription<can_msgs::msg::Frame>::SharedPtr can_sub;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
+  rclcpp::Service<custom_interfaces::srv::SetOdom>::SharedPtr set_odom_service;
   rclcpp::TimerBase::SharedPtr timer;
+  // rclcpp::Service<std_srvs::s>
 };
 
 class ForkCtrl {

@@ -439,11 +439,7 @@
         </inertial>
     </link>
 
-    <joint name="main_2d_lidar_foot_joint" type="fixed">
-        <origin xyz="0.115 0.0 1.9" rpy="0.0 0.0 0.0"/>
-        <parent link="footbase"/>
-        <child link="main_2d_lidar_link"/>
-    </joint>
+
 
     <joint name="frame_foot_joint" type="fixed">
         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
@@ -486,12 +482,16 @@
         <child link="sun"/>
     </joint>
     <joint name="base_link_joint" type="fixed">
-        <origin xyz="1.01 0 0" rpy="0.0 0.0 0"/>
-        <parent link="base_link"/>
-        <child link="footbase"/>
+        <origin xyz="-1.01 0 0" rpy="0.0 0.0 0"/>
+        <parent link="footbase"/>
+        <child link="base_link"/>
         <axis xyz="0.0 0.0 0.0"/>
     </joint>
-
+    <joint name="foot_main_2d_lidar_joint" type="fixed">
+        <origin xyz="-0.115 0.0 -1.9" rpy="0.0 0.0 0.0"/>
+        <parent link="main_2d_lidar_link"/>
+        <child link="footbase"/>
+    </joint>
 
     <joint name="fork_joint" type="prismatic">
         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>

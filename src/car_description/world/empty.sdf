@@ -93,7 +93,7 @@
             <diffuse>0.3 0.1 0.1 1</diffuse>
             <specular>0.8 0.8 0.8 1</specular>
           </material>
-          <laser_retro>90</laser_retro>
+          <laser_retro>0</laser_retro>
         </visual>
         <collision name="left_collision">
           <geometry>
@@ -129,7 +129,7 @@
             <diffuse>0.3 0.1 0.1 1</diffuse>
             <specular>0.8 0.8 0.8 1</specular>
           </material>
-          <laser_retro>90</laser_retro>
+          <laser_retro>0</laser_retro>
         </visual>
         <collision name="mid_collision">
           <geometry>
@@ -167,7 +167,7 @@
             <diffuse>0.3 0.4 0.1 1</diffuse>
             <specular>0.8 0.8 0.8 1</specular>
           </material>
-          <laser_retro>90</laser_retro>
+          <laser_retro>0</laser_retro>
 
         </visual>
         <collision name="right_collision">
@@ -208,7 +208,7 @@
             <diffuse>0.3 0.8 0.1 1</diffuse>
             <specular>0.8 0.8 0.8 1</specular>
           </material>
-          <laser_retro>90</laser_retro>
+          <laser_retro>0</laser_retro>
 
         </visual>
         <collision name="up_collision">
@@ -290,7 +290,7 @@
             <diffuse>0.7 0.1 0.1 1</diffuse>
             <specular>0.8 0.8 0.8 1</specular>
           </material>
-          <laser_retro>120</laser_retro>
+          <laser_retro>0</laser_retro>
 
         </visual>
         <pose  >8.03453 39.8 0 0 -0 0</pose>
@@ -332,7 +332,7 @@
             <diffuse>0.7 0.1 0.1 1</diffuse>
             <specular>0.8 0.8 0.8 1</specular>
           </material>
-          <laser_retro>120</laser_retro>
+          <laser_retro>0</laser_retro>
         </visual>
         <pose  >3.13453 -14.55 0 0 0 -1.5708</pose>
         <self_collide>0</self_collide>
@@ -1473,7 +1473,7 @@
           </surface>
         </collision>
         <visual name='visual'>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
           <geometry>
             <cylinder>
               <radius>0.035</radius>
@@ -1486,7 +1486,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -1646,7 +1646,7 @@
           </surface>
         </collision>
         <visual name='visual'>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
           <geometry>
             <cylinder>
               <radius>0.035</radius>
@@ -1829,7 +1829,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -2001,7 +2001,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -2173,7 +2173,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
         </visual>
         <self_collide>0</self_collide>
         <kinematic>0</kinematic>
@@ -2344,7 +2344,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
         </visual>
         <self_collide>0</self_collide>
         <kinematic>0</kinematic>
@@ -2515,7 +2515,7 @@
             <specular>0.8 0.8 0.8 1</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
         </visual>
         <self_collide>0</self_collide>
         <kinematic>0</kinematic>
@@ -2686,7 +2686,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
         </visual>
         <self_collide>0</self_collide>
         <kinematic>0</kinematic>
@@ -2857,7 +2857,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -3029,7 +3029,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -3201,7 +3201,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -3373,7 +3373,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -3545,7 +3545,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -3717,7 +3717,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -3889,7 +3889,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -4061,7 +4061,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -4233,7 +4233,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -4405,7 +4405,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -4577,7 +4577,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -4749,7 +4749,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -4921,7 +4921,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -5093,7 +5093,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -5265,7 +5265,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -5437,7 +5437,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -5609,7 +5609,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -5781,7 +5781,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
@@ -5954,7 +5954,7 @@
             <specular>0.99 0.99 0.99 0.99</specular>
 
           </material>
-          <laser_retro>1200</laser_retro>
+          <laser_retro>  0.93</laser_retro>
 
         </visual>
         <self_collide>0</self_collide>
