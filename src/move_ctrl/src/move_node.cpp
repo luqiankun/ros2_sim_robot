@@ -310,7 +310,6 @@ void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
     while (angle > M_PI) angle -= 2 * M_PI;
     while (angle <= -M_PI) angle += 2 * M_PI;
     wheel_angle = angle;
-    std::cout << "angle: " << angle << std::endl;
   } else if (msg->id == TPDO3 + m_chassis.vel_can_node_id) {
     // vel
     float vel = 0;
@@ -318,7 +317,6 @@ void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
     vel = vel * 2 * M_PI / 60 * m_chassis.encoder_resolution *
           m_chassis.wheel_radius;
     wheel_vel = vel;
-    std::cout << "vel: " << vel << std::endl;
   } else if (msg->id == TPDO3 + m_chassis.fork_can_node_id) {
     // vel
     float vel = 0;

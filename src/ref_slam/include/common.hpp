@@ -3,8 +3,6 @@
 
 #include <Eigen/Dense>
 #include <chrono>
-#include <string>
-#include <unordered_map>
 #include <vector>
 namespace reflector_slam {
 

@@ -111,7 +111,8 @@ void MapOptimization::laserCallback(
     if (conv > 0.1) {
       Eigen::Matrix4d cur_pose =
           reflector_extractor_->pre_pose_estimation(cur_frame, map);
-      std::cout << cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl;
+      RCLCPP_INFO_STREAM(node_->get_logger(),
+                         cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl);
       Eigen::Matrix4d odom = keyframes[keyframes.size() - 1].pose.inverse() *
                              cur_pose;  // T_cur_last
       Eigen::Vector3d t = odom.block<3, 1>(0, 3);

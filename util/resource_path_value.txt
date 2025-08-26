@@ -1,1 +1,0 @@
-export GAZEBO_RESOURCE_PATH="~/.ignition/models"
