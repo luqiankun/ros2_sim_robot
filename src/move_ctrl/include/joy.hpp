@@ -169,6 +169,7 @@ class JoyStick {
   float max_angular_vel{1};
   float time_out{0.3};
   float fork_vel{0};
+  bool joy_flag{false};
   geometry_msgs::msg::Twist cmd_vel;
   bool time_out_flag{false};
   rclcpp::Time start_time;
@@ -198,6 +199,7 @@ inline void JoyStick::init() {
   cmd_pub =
       node->create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
   timer = node->create_timer(std::chrono::milliseconds(100), [&] {
+    if (!joy_flag) return;
     update();
     if (fabs(cmd_vel.linear.x) > 1e-3 || fabs(cmd_vel.angular.z) > 1e-3) {
       cv.notify_one();
@@ -300,6 +302,7 @@ inline void JoyStick::update() {
 }
 inline void JoyStick::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
   joy->update(msg->buttons, msg->axes);
+  joy_flag = true;
 }
 
 #endif

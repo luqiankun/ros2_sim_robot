@@ -133,26 +133,29 @@ std::vector<Observation> FeatureExtractor::extract(
 }
 
 float FeatureExtractor::match(std::vector<Observation>& reflectors,
-                              const std::vector<Reflector>& map,
+                              const std::unordered_map<int, Reflector>& map,
                               const Eigen::Matrix4d& odom_pose) {
   if (reflectors.empty() || map.empty()) {
     return 0;
   }
   float sum_confidence = 0;
   int match_count = 0;
-  std::vector<uint8_t> map_matched(map.size(), 0);
+  std::unordered_map<int, int> map_matched;
   for (size_t i = 0; i < reflectors.size(); ++i) {
     if (reflectors[i].id != -1) continue;
     Eigen::Vector4d cur_pose = odom_pose * reflectors[i].point.homogeneous();
     double min_distance = max_distance_;
     int best_match = -1;
-    for (size_t j = 0; j < map.size(); ++j) {
-      if (map_matched[j] > 0) continue;
-      Eigen::Vector4d dist = cur_pose - map[j].position.homogeneous();
+
+    for (auto& [id, reflector] : map) {
+      if (map_matched.find(id) != map_matched.end()) {
+        continue;
+      }
+      Eigen::Vector4d dist = cur_pose - reflector.position.homogeneous();
       double distance = dist.head<2>().norm();
       if (distance < min_distance) {
         min_distance = distance;
-        best_match = j;
+        best_match = id;
       }
     }
     if (best_match != -1) {
@@ -170,7 +173,7 @@ float FeatureExtractor::match(std::vector<Observation>& reflectors,
 }
 Eigen::Matrix<double, 4, 4> FeatureExtractor::pre_pose_estimation(
     const std::vector<Observation>& reflectors,
-    const std::vector<Reflector>& map) {
+    std::unordered_map<int, Reflector>& map) {
   std::vector<Eigen::Vector3d> cur_points;
   std::vector<Eigen::Vector3d> map_points;
   for (const auto& reflector : reflectors) {

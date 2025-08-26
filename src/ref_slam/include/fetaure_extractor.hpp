@@ -40,11 +40,11 @@ class FeatureExtractor {
   std::vector<Observation> extract(
       const sensor_msgs::msg::LaserScan::SharedPtr& scan);
   float match(std::vector<Observation>& reflectors,
-              const std::vector<Reflector>& map,
+              const std::unordered_map<int, Reflector>& map,
               const Eigen::Matrix4d& odom_pose);
   Eigen::Matrix<double, 4, 4> pre_pose_estimation(
       const std::vector<Observation>& reflectors,
-      const std::vector<Reflector>& map);
+      std::unordered_map<int, Reflector>& map);
 
  private:
   // 参数
