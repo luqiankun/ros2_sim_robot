@@ -32,6 +32,11 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   reflector_extractor_ = std::make_shared<FeatureExtractor>();
   map_manager_ = std::make_shared<MapManager>();
   optimize_thread_ = std::thread(&MapOptimization::optimize_thread, this);
+  optimize_and_save_service_ = node_->create_service<std_srvs::srv::Empty>(
+      "optimize_and_save",
+      std::bind(&MapOptimization::save_map, this, std::placeholders::_1,
+                std::placeholders::_2));
+  // TODO 地图优化改服务，只优化一次，优化所有关键帧
 }
 
 void MapOptimization::odomCallback(
@@ -51,6 +56,13 @@ void MapOptimization::odomCallback(
   transform.block<3, 3>(0, 0) = q.toRotationMatrix();
   odom_pose = lidar_to_base.inverse() * transform *
               lidar_to_base;  // odom是base_link下的变换，要转换到雷达坐标系下
+}
+
+bool MapOptimization::save_map(
+    const std_srvs::srv::Empty::Request::SharedPtr&,
+    const std_srvs::srv::Empty::Response::SharedPtr) {
+  cv.notify_all();
+  return true;
 }
 
 void MapOptimization::laserCallback(
@@ -144,7 +156,7 @@ void MapOptimization::laserCallback(
       }
       keyframes[frame.id] = frame;
       reset_optimized_map();
-      cv.notify_one();
+      // cv.notify_one();
       // optimize();
     }
     {
@@ -245,13 +257,10 @@ void MapOptimization::reset_optimized_reflectors() {
 void MapOptimization::optimize_thread() {
   while (true) {
     std::unique_lock<std::mutex> lock(optimize_mutex);
-    cv.wait_for(lock, std::chrono::seconds(1),
-                [&] { return need_optimized(); });
-    if (!need_optimized()) {
-      continue;
-    }
+    cv.wait_for(lock, std::chrono::seconds(20));
     std::unordered_map<int, double*> pose_params;  // 关键帧的位姿
     std::unique_lock<std::mutex> key_lock(key_mutex);
+    if (keyframes.size() < 3) continue;
     ceres::Problem problem;
     ceres::Solver::Options options;
     ceres::Solver::Summary summary;
@@ -359,29 +368,10 @@ void MapOptimization::optimize_thread() {
       status.first_optimize = false;
     }
     status.last_optimize_time = std::chrono::steady_clock::now();
+    map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                         optimized_reflectors_);
+    map_manager_->save_map(".");
     RCLCPP_INFO(node_->get_logger(), "Optimization finished.");
   }
 }
-
-bool MapOptimization::need_optimized() {
-  std::unique_lock<std::mutex> lock(key_mutex);
-  if (status.first_optimize) {
-    if (keyframes.size() > 5) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-  auto now = std::chrono::steady_clock::now();
-  auto dur = std::chrono::duration_cast<std::chrono::seconds>(
-      (now - status.last_optimize_time));
-  if (dur.count() > 10) {
-    return true;
-  } else if ((keyframes.size() - status.last_keyframe_num) > 5) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
 }  // namespace reflector_slam

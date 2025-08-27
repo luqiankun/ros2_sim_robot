@@ -1,8 +1,8 @@
 #include "../include/map_manager.hpp"
 namespace reflector_slam {
 MapManager::MapManager() {
-  map_image = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
-  map_image_with_ref = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
+  map_image = cv::Mat(4000, 4000, CV_8UC3, cv::Scalar(255, 255, 255));
+  map_image_with_ref = cv::Mat(4000, 4000, CV_8UC3, cv::Scalar(255, 255, 255));
 }
 bool MapManager::generate_from_keyframe(
     std::unordered_map<int, Reflector>& reflectors,
@@ -12,7 +12,7 @@ bool MapManager::generate_from_keyframe(
 {
   double map_origin_x = -50;
   double map_origin_y = -50;
-  double map_scale = 10.0;
+  double map_scale = 40.0;
   if (keyframes.empty() || reflectors.empty()) {
     return false;
   }
@@ -61,7 +61,7 @@ bool MapManager::generate_from_keyframe(
         cv::Point(static_cast<int>((t(0) - map_origin_x) * map_scale),
                   map_image_with_ref.rows -
                       static_cast<int>((t(1) - map_origin_y) * map_scale)),
-        3, cv::Scalar(255, 0, 0), -1);
+        1, cv::Scalar(255, 0, 0), -1);
 
     // 绘制关键帧观测的反光板（红色）
     for (auto& obs : kf.observations) {
@@ -73,7 +73,7 @@ bool MapManager::generate_from_keyframe(
             cv::Point(static_cast<int>((p(0) - map_origin_x) * map_scale),
                       map_image_with_ref.rows -
                           static_cast<int>((p(1) - map_origin_y) * map_scale)),
-            (0.35) * map_scale, cv::Scalar(0, 0, 255), -1);
+            std::ceil((0.035) * map_scale), cv::Scalar(0, 0, 255), -1);
       }
     }
   }

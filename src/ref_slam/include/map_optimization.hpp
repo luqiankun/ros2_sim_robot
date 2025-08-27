@@ -7,6 +7,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
+#include <std_srvs/srv/empty.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -145,19 +146,15 @@ class MapOptimization {
  public:
   enum Mode { Loc, Slam };
   MapOptimization(rclcpp::Node::SharedPtr node);
-  ~MapOptimization() {
-    std::cout << "~MapOptimization()" << std::endl;
-    map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
-                                         optimized_reflectors_);
-    map_manager_->save_map(".");
-  }
+  ~MapOptimization() {}
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void optimize();
   void reset_optimized_map();
   void reset_optimized_reflectors();
   void optimize_thread();
-  bool need_optimized();
+  bool save_map(const std_srvs::srv::Empty::Request::SharedPtr& request,
+                const std_srvs::srv::Empty::Response::SharedPtr response);
   visualization_msgs::msg::MarkerArray getMarkers(
       const std::vector<Observation>& refs);
 
@@ -167,6 +164,7 @@ class MapOptimization {
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       marker_pub_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr optimize_and_save_service_;
   std::shared_ptr<MapManager> map_manager_;
   std::unordered_map<int, Reflector> map;
   std::unordered_map<int, Keyframe> keyframes;

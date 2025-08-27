@@ -202,7 +202,7 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
 
-    std::cout << summary.BriefReport() << std::endl;
+    // std::cout << summary.BriefReport() << std::endl;
     if (fabs(err - summary.final_cost) < 1e-4) {
       err = summary.final_cost;
       break;
