@@ -1,8 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
-
 #include <Eigen/Dense>
 #include <chrono>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <vector>
 namespace reflector_slam {
 
@@ -25,6 +25,7 @@ struct Keyframe {
   Eigen::Matrix4d pose;  // 传感器位姿（T_world_sensor）
   std::chrono::steady_clock::time_point timestamp;  // 时间戳
   std::vector<Observation> observations;            // 观测数据
+  sensor_msgs::msg::LaserScan::SharedPtr scan;      // 激光数据
 };
 
 struct Odometry {

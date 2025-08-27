@@ -2,7 +2,6 @@
 #define REFLECTOR_EXTRACTOR_HPP
 #include <ceres/ceres.h>
 
-#include <sensor_msgs/msg/laser_scan.hpp>
 #include <vector>
 
 #include "common.hpp"

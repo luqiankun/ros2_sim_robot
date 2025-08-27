@@ -18,6 +18,7 @@ find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(custom_interfaces REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(OpenCV REQUIRED)
 file(GLOB_RECURSE SOURCE_SRCS src/*.cpp src/*.cc)
 include_directories(${EIGEN3_INCLUDE_DIRS})
 add_executable(ref_slam_node
@@ -41,6 +42,7 @@ ament_target_dependencies(
 
 target_link_libraries(ref_slam_node
   ${CERES_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )
 
 if(BUILD_TESTING)

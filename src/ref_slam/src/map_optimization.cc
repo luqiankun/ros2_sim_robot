@@ -20,16 +20,17 @@ Eigen::Matrix<double, 6, 6> createInformationMatrix(double trans_std,
   return info;
 }
 MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
-  odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
-      "odom", 10,
-      std::bind(&MapOptimization::odomCallback, this, std::placeholders::_1));
+  // odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
+  //     "odom", 10,
+  //     std::bind(&MapOptimization::odomCallback, this,
+  //     std::placeholders::_1));
   laser_sub_ = node_->create_subscription<sensor_msgs::msg::LaserScan>(
       "lidar", 10,
       std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
       "reflector_markers", 10);
   reflector_extractor_ = std::make_shared<FeatureExtractor>();
-  map.clear();
+  map_manager_ = std::make_shared<MapManager>();
   optimize_thread_ = std::thread(&MapOptimization::optimize_thread, this);
 }
 
@@ -55,15 +56,6 @@ void MapOptimization::odomCallback(
 void MapOptimization::laserCallback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   auto cur_frame = reflector_extractor_->extract(msg);
-  //   for (auto& x : cur_markers.markers) {
-  //     x.action = visualization_msgs::msg::Marker::DELETE;
-  //   }
-  //   marker_pub_->publish(cur_markers);
-  //   for (auto& x : cur_frame) {
-  //     Eigen::Vector3d p = (odom_pose * x.point.homogeneous()).head<3>();
-  //     // std::cout << p.transpose() << std::endl;
-  //   }
-  //   RCLCPP_INFO(node_->get_logger(), "cur_frame: %ld", cur_frame.size());
   std::unique_lock<std::mutex> lock(ref_mutex);
   if (map.empty()) {
     for (size_t i = 0; i < cur_frame.size(); ++i) {
@@ -86,6 +78,15 @@ void MapOptimization::laserCallback(
                        cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl);
     Eigen::Matrix4d odom = keyframes[keyframes.size() - 1].pose.inverse() *
                            cur_pose;  // T_cur_last
+    int own = 0;
+    for (auto& obs : keyframes[keyframes.size() - 1].observations) {
+      auto it =
+          std::find_if(cur_frame.begin(), cur_frame.end(),
+                       [&obs](const Observation& x) { return x.id == obs.id; });
+      if (it != cur_frame.end()) {
+        own++;
+      }
+    }
     Eigen::Vector3d t = odom.block<3, 1>(0, 3);
     Eigen::Quaterniond Qua(odom.block<3, 3>(0, 0));
     Qua.normalize();
@@ -112,10 +113,11 @@ void MapOptimization::laserCallback(
       }
     }
     lock.unlock();
-    if (t.norm() > 1 || fabs(angle) > M_PI / 6) {
+    if (t.norm() > 0.5 || fabs(angle) > M_PI / 18 || own < 3) {
       // 大于1米
       Keyframe frame;
       frame.id = keyframes.size();
+      frame.scan = msg;
       frame.pose = cur_pose;
       for (auto& obs : cur_frame) {
         if (obs.id != -1) {

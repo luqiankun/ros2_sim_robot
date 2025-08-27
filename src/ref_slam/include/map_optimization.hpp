@@ -11,6 +11,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "./fetaure_extractor.hpp"
+#include "./map_manager.hpp"
 namespace reflector_slam {
 
 struct ObservationResidual {
@@ -144,7 +145,12 @@ class MapOptimization {
  public:
   enum Mode { Loc, Slam };
   MapOptimization(rclcpp::Node::SharedPtr node);
-
+  ~MapOptimization() {
+    std::cout << "~MapOptimization()" << std::endl;
+    map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                         optimized_reflectors_);
+    map_manager_->save_map(".");
+  }
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void optimize();
@@ -161,6 +167,7 @@ class MapOptimization {
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       marker_pub_;
+  std::shared_ptr<MapManager> map_manager_;
   std::unordered_map<int, Reflector> map;
   std::unordered_map<int, Keyframe> keyframes;
   // 优化结果
