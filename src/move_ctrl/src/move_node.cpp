@@ -232,14 +232,19 @@ Odomtry::Odomtry(rclcpp::Node::SharedPtr node, const Chassis& chassis)
         res->success = set_pos(req->x, req->y, req->theta);
         return true;
       });
+  imu_sub = node->create_subscription<sensor_msgs::msg::Imu>(
+      "imu", 10,
+      std::bind(&Odomtry::imu_callback, this, std::placeholders::_1));
   first_odometry = true;
 }
 
 void Odomtry::timer_callback() {
   float radius = m_chassis.x / (tan(fabs(wheel_angle)) + 1e-8) + m_chassis.y;
   float wheel_radius = m_chassis.x / (sin(fabs(wheel_angle)) + 1e-8);
-  float omega = wheel_vel / wheel_radius;
-  float v = omega * radius;
+  float omega_ = wheel_vel / wheel_radius;
+  float v = omega_ * radius;
+  // std::cout << "v: " << v << std::endl;
+  // std::cout << "omega: " << omega_ << std::endl;
   if (first_odometry) {
     first_odometry = false;
     last_time = node->now();
@@ -331,9 +336,14 @@ void Odomtry::can_callback(const can_msgs::msg::Frame::SharedPtr msg) {
   }
 }
 
+void Odomtry::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+  omega = msg->angular_velocity.z;
+}
+
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("test");
+  node->set_parameter(rclcpp::Parameter("use_sim_time", true));
   Chassis m_chassis{0.105, 1.26, 0, 1, M_PI * 2, 1, 3, 2};
   MoveCtrl move_ctrl(node, m_chassis);
   Odomtry odomtry(node, m_chassis);

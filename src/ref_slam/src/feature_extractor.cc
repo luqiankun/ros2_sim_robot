@@ -132,104 +132,91 @@ std::vector<Observation> FeatureExtractor::extract(
   return observations;
 }
 
-float FeatureExtractor::match(std::vector<Observation>& reflectors,
-                              const std::unordered_map<int, Reflector>& map,
-                              const Eigen::Matrix4d& odom_pose) {
+Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
+                                        std::unordered_map<int, Reflector>& map,
+                                        const Eigen::Matrix4d& odom_pose) {
   if (reflectors.empty() || map.empty()) {
-    return 0;
+    return Eigen::Matrix4d::Identity();
   }
-  float sum_confidence = 0;
-  int match_count = 0;
-  std::unordered_map<int, int> map_matched;
-  for (size_t i = 0; i < reflectors.size(); ++i) {
-    if (reflectors[i].id != -1) continue;
-    Eigen::Vector4d cur_pose = odom_pose * reflectors[i].point.homogeneous();
-    double min_distance = max_distance_;
-    int best_match = -1;
 
-    for (auto& [id, reflector] : map) {
-      if (map_matched.find(id) != map_matched.end()) {
-        continue;
+  double pose[7]{odom_pose(0, 3), odom_pose(1, 3), odom_pose(2, 3), 0, 0, 0, 1};
+  Eigen::Quaterniond qua(odom_pose.block<3, 3>(0, 0));
+  pose[3] = qua.x();
+  pose[4] = qua.y();
+  pose[5] = qua.z();
+  pose[6] = qua.w();
+  int max_iteration = 50;
+  double err = -1;
+  for (int i = 0; i < max_iteration; ++i) {
+    ceres::Problem problem;
+    // 最邻近
+    std::unordered_map<int, int> map_matched;
+    Eigen::Matrix4d opt_pose = Eigen::Matrix4d::Identity();
+    opt_pose.block(0, 0, 3, 3) =
+        Eigen::Quaterniond(pose[6], pose[3], pose[4], pose[5])
+            .toRotationMatrix();
+    opt_pose.block(0, 3, 3, 1) = Eigen::Vector3d(pose[0], pose[1], pose[2]);
+    for (size_t i = 0; i < reflectors.size(); ++i) {
+      if (reflectors[i].id != -1) continue;
+      Eigen::Vector4d cur_pose = opt_pose * reflectors[i].point.homogeneous();
+      double min_distance = 1;
+      int best_match = -1;
+
+      for (auto& [id, reflector] : map) {
+        if (map_matched.find(id) != map_matched.end()) {
+          continue;
+        }
+        Eigen::Vector4d dist = cur_pose - reflector.position.homogeneous();
+        double distance = dist.head<2>().norm();
+        if (distance < min_distance) {
+          min_distance = distance;
+          best_match = id;
+        }
       }
-      Eigen::Vector4d dist = cur_pose - reflector.position.homogeneous();
-      double distance = dist.head<2>().norm();
-      if (distance < min_distance) {
-        min_distance = distance;
-        best_match = id;
+      if (best_match != -1) {
+        // 有匹配
+        reflectors[i].id = best_match;
+        map_matched[best_match] = 1;
+        reflectors[i].confidence = 1 - min_distance / max_distance_;
+        auto cost = MatchResidual::Create(reflectors[i].point,
+                                          map[best_match].position);
+        problem.AddResidualBlock(cost, new ceres::HuberLoss(0.5), pose);
+
+      } else {
+        // 没有匹配
+        auto cost = UnmatchedResidual::Create(1);
+        problem.AddResidualBlock(cost, nullptr, pose);
       }
     }
-    if (best_match != -1) {
-      reflectors[i].id = best_match;
-      map_matched[best_match] = 1;
-      reflectors[i].confidence = 1 - min_distance / max_distance_;
-      sum_confidence += reflectors[i].confidence;
-      ++match_count;
+    for (auto& [id, ref] : map) {
+      if (map_matched.find(id) == map_matched.end()) {
+        auto cost = UnmatchedResidual::Create(1);
+        problem.AddResidualBlock(cost, nullptr, pose);
+      }
+    }
+    // Solve the problem
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::DENSE_QR;
+    options.max_num_iterations = 50;
+    options.minimizer_progress_to_stdout = false;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+
+    std::cout << summary.BriefReport() << std::endl;
+    if (fabs(err - summary.final_cost) < 1e-4) {
+      err = summary.final_cost;
+      break;
+    }
+    err = summary.final_cost;
+    if (summary.final_cost < 1e-4) {
+      break;
     }
   }
-  if (match_count < 3) {
-    return -1;
-  }
-  return sum_confidence / match_count;
-}
-Eigen::Matrix<double, 4, 4> FeatureExtractor::pre_pose_estimation(
-    const std::vector<Observation>& reflectors,
-    std::unordered_map<int, Reflector>& map) {
-  std::vector<Eigen::Vector3d> cur_points;
-  std::vector<Eigen::Vector3d> map_points;
-  for (const auto& reflector : reflectors) {
-    if (reflector.id != -1) {
-      cur_points.push_back(reflector.point);
-      map_points.push_back(map[reflector.id].position);
-    }
-  }
-  if (cur_points.size() < 3) {
-    throw std::runtime_error("Not enough points for pose estimation");
-  }
-  // 1. 计算质心
-  Eigen::Vector3d centroid_src(0, 0, 0);
-  Eigen::Vector3d centroid_dst(0, 0, 0);
-  int n = cur_points.size();
-
-  for (int i = 0; i < n; ++i) {
-    centroid_src += cur_points[i];
-    centroid_dst += map_points[i];
-  }
-
-  centroid_src /= n;
-  centroid_dst /= n;
-
-  // 2. 计算去质心点集和协方差矩阵
-  Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
-  for (int i = 0; i < n; ++i) {
-    Eigen::Vector3d src_centered = cur_points[i] - centroid_src;
-    Eigen::Vector3d dst_centered = map_points[i] - centroid_dst;
-    H += src_centered * dst_centered.transpose();
-  }
-
-  // 3. SVD分解
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      H, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Matrix3d U = svd.matrixU();
-  Eigen::Matrix3d V = svd.matrixV();
-
-  // 4. 计算旋转矩阵
-  Eigen::Matrix3d R = V * U.transpose();
-
-  // 处理可能的反射 (确保旋转矩阵行列式为1)
-  if (R.determinant() < 0) {
-    Eigen::Matrix3d diag = Eigen::Matrix3d::Identity();
-    diag(2, 2) = -1;
-    R = V * diag * U.transpose();
-  }
-
-  // 5. 计算平移向量
-  Eigen::Vector3d t = centroid_dst - R * centroid_src;
-
-  // 6. 构造4x4变换矩阵
-  Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
-  transform.block<3, 3>(0, 0) = R;
-  transform.block<3, 1>(0, 3) = t;
-
-  return transform;
+  Eigen::Matrix4d result = Eigen::Matrix4d::Identity();
+  result.block(0, 0, 3, 3) =
+      Eigen::Quaterniond(pose[6], pose[3], pose[4], pose[5]).toRotationMatrix();
+  result.block(0, 3, 3, 1) = Eigen::Vector3d(pose[0], pose[1], pose[2]);
+  std::cout << "final cost: " << err << std::endl;
+  return result;
 }
 }  // namespace reflector_slam

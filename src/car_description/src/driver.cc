@@ -284,6 +284,7 @@ Driver::Driver(rclcpp::Node::SharedPtr n) : node_{n} {}
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("car_description_driver");
+  node->set_parameter(rclcpp::Parameter("use_sim_time", true));
   auto driver = std::make_shared<Driver>(node);
   driver->add_motor(1, "main_wheel_joint");
   driver->add_motor(2, "fork_joint");

@@ -10,6 +10,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <std_msgs/msg/float64.hpp>
 const std::string can_tx_topic = "/can0_tx";
 const std::string can_rx_topic = "/can0_rx";
@@ -43,6 +44,7 @@ class Odomtry {
  public:
   Odomtry(rclcpp::Node::SharedPtr node, const Chassis& chassis);
   void can_callback(const can_msgs::msg::Frame::SharedPtr msg);
+  void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
   void timer_callback();
   float get_wheel_vel() const { return wheel_vel; }
   float get_wheel_angle() const { return wheel_angle; }
@@ -58,6 +60,7 @@ class Odomtry {
   float m_theta{0};
   float fork_hight{0};
   float fork_vel{0};
+  float omega{0};
   const Chassis& m_chassis;
   rclcpp::Time last_time;
   bool first_odometry{true};
@@ -66,6 +69,7 @@ class Odomtry {
   rclcpp::Subscription<can_msgs::msg::Frame>::SharedPtr can_sub;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
   rclcpp::Service<custom_interfaces::srv::SetOdom>::SharedPtr set_odom_service;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
   rclcpp::TimerBase::SharedPtr timer;
   // rclcpp::Service<std_srvs::s>
 };

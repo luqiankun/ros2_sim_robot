@@ -7,7 +7,54 @@
 
 #include "common.hpp"
 namespace reflector_slam {
+struct MatchResidual {
+  MatchResidual(const Eigen::Vector3d& ref_pose,
+                const Eigen::Vector3d& map_pose)
+      : ref_pose(ref_pose), map_pose(map_pose) {}
+  template <typename T>
+  bool operator()(const T* const pose, T* residual) const {
+    // x y z qx qy qz qw
+    Eigen::Quaternion<T> quat(pose[6], pose[3], pose[4], pose[5]);
+    Eigen::Matrix<T, 3, 1> t(pose[0], pose[1], pose[2]);
+    Eigen::Matrix<T, 3, 1> ref_pose_t(T(ref_pose.x()), T(ref_pose.y()),
+                                      T(ref_pose.z()));
+    Eigen::Matrix<T, 3, 1> map_pose_t(T(map_pose.x()), T(map_pose.y()),
+                                      T(map_pose.z()));
+    Eigen::Matrix<T, 3, 1> ref_pose_t_transformed = quat * ref_pose_t + t;
+    residual[0] = ref_pose_t_transformed.x() - T(map_pose_t.x());
+    residual[1] = ref_pose_t_transformed.y() - T(map_pose_t.y());
+    residual[2] = ref_pose_t_transformed.z() - T(map_pose_t.z());
+    return true;
+  }
+  static ceres::CostFunction* Create(const Eigen::Vector3d& ref_pose,
+                                     const Eigen::Vector3d& map_pose) {
+    return new ceres::AutoDiffCostFunction<MatchResidual, 3, 7>(
+        new MatchResidual(ref_pose, map_pose));
+  }
 
+ private:
+  Eigen::Vector3d ref_pose;
+  Eigen::Vector3d map_pose;
+};
+struct UnmatchedResidual {
+  UnmatchedResidual(double weight) : weight_(weight) {}
+
+  template <typename T>
+  bool operator()(const T* const pose, T* residual) const {
+    (void)pose;
+    // 惩罚项：固定权重（不依赖位姿，仅用于约束未匹配点数量）
+    residual[0] = T(weight_);
+    return true;
+  }
+
+  static ceres::CostFunction* Create(double weight) {
+    return new ceres::AutoDiffCostFunction<UnmatchedResidual, 1, 7>(
+        new UnmatchedResidual(weight));
+  }
+
+ private:
+  double weight_;  // 惩罚权重（根据传感器特性设置）
+};
 class FeatureExtractor {
  public:
   class CircleCostFunction : public ceres::SizedCostFunction<1, 3> {
@@ -39,9 +86,9 @@ class FeatureExtractor {
 
   std::vector<Observation> extract(
       const sensor_msgs::msg::LaserScan::SharedPtr& scan);
-  float match(std::vector<Observation>& reflectors,
-              const std::unordered_map<int, Reflector>& map,
-              const Eigen::Matrix4d& odom_pose);
+  Eigen::Matrix<double, 4, 4> match(std::vector<Observation>& reflectors,
+                                    std::unordered_map<int, Reflector>& map,
+                                    const Eigen::Matrix4d& odom_pose);
   Eigen::Matrix<double, 4, 4> pre_pose_estimation(
       const std::vector<Observation>& reflectors,
       std::unordered_map<int, Reflector>& map);

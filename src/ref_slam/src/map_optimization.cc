@@ -29,33 +29,6 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
       "reflector_markers", 10);
   reflector_extractor_ = std::make_shared<FeatureExtractor>();
-  // map.push_back(Reflector{Eigen::Vector3d(27.0809, 5.02901, 0), 0});
-  // map.push_back(Reflector{Eigen::Vector3d(27.0639, 22.6547, 0), 2});
-  // map.push_back(Reflector{Eigen::Vector3d(26.6122, -12.7367, 0), 3});
-  // map.push_back(Reflector{Eigen::Vector3d(2.76219, -4.6443, 0), 4});
-  // map.push_back(Reflector{Eigen::Vector3d(0.766346, -6.04852, 0), 5});
-  // map.push_back(Reflector{Eigen::Vector3d(2.99862, 15.3888, 0), 6});
-  // map.push_back(Reflector{Eigen::Vector3d(0.999057, 13.6581, 0), 7});
-  // map.push_back(Reflector{Eigen::Vector3d(-5.72091, 8.53991, 0), 8});
-  // map.push_back(Reflector{Eigen::Vector3d(2.75094, -24.71, 0), 9});
-  // map.push_back(Reflector{Eigen::Vector3d(1.05172, -27.0912, 0), 10});
-  // map.push_back(Reflector{Eigen::Vector3d(-4.70903, -17.373, 0), 11});
-  // map.push_back(Reflector{Eigen::Vector3d(21.2085, -27.1435, 0), 12});
-  // map.push_back(Reflector{Eigen::Vector3d(9.74532, -38.6915, 0), 13});
-  // map.push_back(Reflector{Eigen::Vector3d(-3.4929, -38.8038, 0), 14});
-  // map.push_back(Reflector{Eigen::Vector3d(-27.6341, 27.6691, 0), 15});
-  // map.push_back(Reflector{Eigen::Vector3d(-28.3731, 15.9639, 0), 16});
-  // map.push_back(Reflector{Eigen::Vector3d(16.6716, 37.5803, 0), 17});
-  // map.push_back(Reflector{Eigen::Vector3d(4.88702, 37.6613, 0), 18});
-  // map.push_back(Reflector{Eigen::Vector3d(-14.5391, 37.9663, 0), 19});
-  // map.push_back(Reflector{Eigen::Vector3d(-19.59, 8.26576, 0), 20});
-  // map.push_back(Reflector{Eigen::Vector3d(-34.4213, 27.5766, 0), 21});
-  // map.push_back(Reflector{Eigen::Vector3d(-34.4034, 16.0788, 0), 22});
-  // map.push_back(Reflector{Eigen::Vector3d(-41.3103, 37.7089, 0), 23});
-  // map.push_back(Reflector{Eigen::Vector3d(-34.3343, 8.04166, 0), 24});
-  // map.push_back(Reflector{Eigen::Vector3d(-34.3923, -2.58821, 0), 25});
-  // map.push_back(Reflector{Eigen::Vector3d(-34.4771, 15.3802, 0), 26});
-  // map.push_back(Reflector{Eigen::Vector3d(-34.5775, -29.2945, 0), 27});
   map.clear();
   optimize_thread_ = std::thread(&MapOptimization::optimize_thread, this);
 }
@@ -107,92 +80,90 @@ void MapOptimization::laserCallback(
     keyframes[frame.id] = frame;
     lock.unlock();
   } else {
-    auto conv = reflector_extractor_->match(cur_frame, map, odom_pose);
-    if (conv > 0.1) {
-      Eigen::Matrix4d cur_pose =
-          reflector_extractor_->pre_pose_estimation(cur_frame, map);
-      RCLCPP_INFO_STREAM(node_->get_logger(),
-                         cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl);
-      Eigen::Matrix4d odom = keyframes[keyframes.size() - 1].pose.inverse() *
-                             cur_pose;  // T_cur_last
-      Eigen::Vector3d t = odom.block<3, 1>(0, 3);
-      Eigen::Quaterniond Qua(odom.block<3, 3>(0, 0));
-      Qua.normalize();
-      double angle = 2 * acos(Qua.w());  // yaw
-      cur_pose_ = cur_pose;
-      for (auto x : cur_frame) {
-        // 没有匹配的 新加入
-        if (x.id == -1) {
-          Eigen::Vector3d pose = (cur_pose_ * x.point.homogeneous()).head<3>();
-          bool exit = false;
-          for (auto& x : map) {
-            if ((x.second.position - pose).norm() < 0.3) {
-              exit = true;
-              break;
-            }
-          }
-          if (!exit) {
-            Reflector ref;
-            ref.id = map.size();
-            ref.position = (cur_pose_ * x.point.homogeneous()).head<3>();
-            map[ref.id] = ref;
-            reset_optimized_reflectors();
+    Eigen::Matrix4d cur_pose =
+        reflector_extractor_->match(cur_frame, map, cur_pose_);
+    RCLCPP_INFO_STREAM(node_->get_logger(),
+                       cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl);
+    Eigen::Matrix4d odom = keyframes[keyframes.size() - 1].pose.inverse() *
+                           cur_pose;  // T_cur_last
+    Eigen::Vector3d t = odom.block<3, 1>(0, 3);
+    Eigen::Quaterniond Qua(odom.block<3, 3>(0, 0));
+    Qua.normalize();
+    double angle = 2 * acos(Qua.w());  // yaw
+    cur_pose_ = cur_pose;
+    for (auto x : cur_frame) {
+      // 没有匹配的 新加入
+      if (x.id == -1) {
+        Eigen::Vector3d pose = (cur_pose_ * x.point.homogeneous()).head<3>();
+        bool exit = false;
+        for (auto& x : map) {
+          if ((x.second.position - pose).norm() < 0.3) {
+            exit = true;
+            break;
           }
         }
-      }
-      lock.unlock();
-      if (t.norm() > 1 || fabs(angle) > M_PI / 6) {
-        // 大于1米
-        Keyframe frame;
-        frame.id = keyframes.size();
-        frame.pose = cur_pose;
-        for (auto& obs : cur_frame) {
-          if (obs.id != -1) {
-            frame.observations.push_back(obs);
-          }
+        if (!exit) {
+          Reflector ref;
+          ref.id = map.size();
+          ref.position = (cur_pose_ * x.point.homogeneous()).head<3>();
+          map[ref.id] = ref;
+          reset_optimized_reflectors();
         }
-        frame.timestamp = std::chrono::steady_clock::now();
-        std::unique_lock<std::mutex> lock2(key_mutex);
-        if (keyframes.size() > 0) {
-          // 添加里程计信息
-          auto last = keyframes[keyframes.size() - 1];
-          Odometry odom;
-          auto info_mat = createInformationMatrix(0.1, 0.1);
-          for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 6; j++) {
-              odom.info[i][j] = info_mat(i, j);
-            }
-          }
-          odom.last_id = keyframes.size() - 1;
-          odom.cur_id = keyframes.size();
-          odom.last_pose = last.pose;
-          odom.current_pose = cur_pose;
-          odoms.push_back(odom);
-        }
-        keyframes[frame.id] = frame;
-        reset_optimized_map();
-        cv.notify_one();
-        // optimize();
-      }
-      {
-        geometry_msgs::msg::TransformStamped transformStamped;
-        transformStamped.header.stamp = node_->now();
-        transformStamped.header.frame_id = "map";
-        transformStamped.child_frame_id = "main_2d_lidar_link";
-        transformStamped.transform.translation.x = cur_pose_(0, 3);
-        transformStamped.transform.translation.y = cur_pose_(1, 3);
-        transformStamped.transform.translation.z = 1.9;
-        Eigen::Matrix3d q = cur_pose_.block<3, 3>(0, 0);
-        Eigen::Quaterniond quat(q);
-        quat.normalize();
-        transformStamped.transform.rotation.x = quat.x();
-        transformStamped.transform.rotation.y = quat.y();
-        transformStamped.transform.rotation.z = quat.z();
-        transformStamped.transform.rotation.w = quat.w();
-        tf2_ros::TransformBroadcaster transformBroadcaster(node_);
-        transformBroadcaster.sendTransform(transformStamped);
       }
     }
+    lock.unlock();
+    if (t.norm() > 1 || fabs(angle) > M_PI / 6) {
+      // 大于1米
+      Keyframe frame;
+      frame.id = keyframes.size();
+      frame.pose = cur_pose;
+      for (auto& obs : cur_frame) {
+        if (obs.id != -1) {
+          frame.observations.push_back(obs);
+        }
+      }
+      frame.timestamp = std::chrono::steady_clock::now();
+      std::unique_lock<std::mutex> lock2(key_mutex);
+      if (keyframes.size() > 0) {
+        // 添加里程计信息
+        auto last = keyframes[keyframes.size() - 1];
+        Odometry odom;
+        auto info_mat = createInformationMatrix(0.1, 0.1);
+        for (int i = 0; i < 6; i++) {
+          for (int j = 0; j < 6; j++) {
+            odom.info[i][j] = info_mat(i, j);
+          }
+        }
+        odom.last_id = keyframes.size() - 1;
+        odom.cur_id = keyframes.size();
+        odom.last_pose = last.pose;
+        odom.current_pose = cur_pose;
+        odoms.push_back(odom);
+      }
+      keyframes[frame.id] = frame;
+      reset_optimized_map();
+      cv.notify_one();
+      // optimize();
+    }
+    {
+      geometry_msgs::msg::TransformStamped transformStamped;
+      transformStamped.header.stamp = node_->now();
+      transformStamped.header.frame_id = "map";
+      transformStamped.child_frame_id = "main_2d_lidar_link";
+      transformStamped.transform.translation.x = cur_pose_(0, 3);
+      transformStamped.transform.translation.y = cur_pose_(1, 3);
+      transformStamped.transform.translation.z = 1.9;
+      Eigen::Matrix3d q = cur_pose_.block<3, 3>(0, 0);
+      Eigen::Quaterniond quat(q);
+      quat.normalize();
+      transformStamped.transform.rotation.x = quat.x();
+      transformStamped.transform.rotation.y = quat.y();
+      transformStamped.transform.rotation.z = quat.z();
+      transformStamped.transform.rotation.w = quat.w();
+      tf2_ros::TransformBroadcaster transformBroadcaster(node_);
+      transformBroadcaster.sendTransform(transformStamped);
+    }
+
     cur_markers = getMarkers(cur_frame);
     if (cur_markers.markers.size() > 0) {
       marker_pub_->publish(cur_markers);
@@ -281,9 +252,7 @@ void MapOptimization::optimize_thread() {
     std::unique_lock<std::mutex> key_lock(key_mutex);
     ceres::Problem problem;
     ceres::Solver::Options options;
-    ceres::LossFunction* loss_function;
     ceres::Solver::Summary summary;
-    loss_function = new ceres::HuberLoss(0.1);
     for (const auto& [id, pose] : optimized_map_) {
       Eigen::Vector3d pos = pose.block<3, 1>(0, 3);
       Eigen::Matrix3d R = pose.block<3, 3>(0, 0);
@@ -313,13 +282,14 @@ void MapOptimization::optimize_thread() {
     ref_lock.unlock();
     // 观测
     key_lock.lock();
+    status.last_keyframe_num = keyframes.size();
     for (auto const& [id, frame] : keyframes) {
       for (auto const& obs : frame.observations) {
         if (obs.id == -1) continue;
         auto cost = ObservationResidual::Create(obs.point);
         double* p1 = pose_params[id];
         double* p2 = reflector_params[obs.id];
-        problem.AddResidualBlock(cost, loss_function, p1, p2);
+        problem.AddResidualBlock(cost, new ceres::HuberLoss(0.1), p1, p2);
       }
     }
     key_lock.unlock();
@@ -348,15 +318,16 @@ void MapOptimization::optimize_thread() {
                             q1.y(), q1.z(), q1.w()};
       double params_2[7] = {p2.x(), p2.y(), p2.z(), q2.x(),
                             q2.y(), q2.z(), q2.w()};
-      problem.AddResidualBlock(cost_function, loss_function, params_1,
-                               params_2);
+      problem.AddResidualBlock(cost_function, new ceres::HuberLoss(0.1),
+                               params_1, params_2);
     }
     //
 
-    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
     options.num_threads = 4;
     options.max_num_iterations = 50;
     options.logging_type = ceres::PER_MINIMIZER_ITERATION;
+    options.minimizer_progress_to_stdout = true;
     options.function_tolerance = 1e-8;
     ceres::Solve(options, &problem, &summary);
     for (const auto& [id, params] : pose_params) {
@@ -382,12 +353,11 @@ void MapOptimization::optimize_thread() {
       }
       delete[] params;
     }
-    delete loss_function;
     if (status.first_optimize) {
       status.first_optimize = false;
     }
-    status.last_keyframe_num = keyframes.size();
     status.last_optimize_time = std::chrono::steady_clock::now();
+    RCLCPP_INFO(node_->get_logger(), "Optimization finished.");
   }
 }
 
