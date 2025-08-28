@@ -75,6 +75,7 @@ void MapOptimization::laserCallback(
       ref.id = map.size();
       ref.position = cur_frame[i].point;
       map[ref.id] = ref;
+      optimized_reflectors_[ref.id] = ref.position;
     }
     Keyframe frame;
     frame.id = keyframes.size();
@@ -82,6 +83,7 @@ void MapOptimization::laserCallback(
     frame.observations = cur_frame;
     frame.timestamp = std::chrono::steady_clock::now();
     keyframes[frame.id] = frame;
+    optimized_map_[frame.id] = frame.pose;
     lock.unlock();
   } else {
     Eigen::Matrix4d cur_pose =
@@ -120,7 +122,8 @@ void MapOptimization::laserCallback(
           ref.id = map.size();
           ref.position = (cur_pose_ * x.point.homogeneous()).head<3>();
           map[ref.id] = ref;
-          reset_optimized_reflectors();
+          optimized_reflectors_[ref.id] = ref.position;
+          RCLCPP_INFO(node_->get_logger(), "new ref %d", ref.id);
         }
       }
     }
@@ -155,7 +158,8 @@ void MapOptimization::laserCallback(
         odoms.push_back(odom);
       }
       keyframes[frame.id] = frame;
-      reset_optimized_map();
+      optimized_map_[frame.id] = frame.pose;
+      lock2.unlock();
       // cv.notify_one();
       // optimize();
     }
@@ -264,6 +268,14 @@ void MapOptimization::optimize_thread() {
     ceres::Problem problem;
     ceres::Solver::Options options;
     ceres::Solver::Summary summary;
+    int N = keyframes.size();
+    int start = std::max(0, N - window_size);
+    std::unordered_set<int> window_ids;
+    std::unordered_set<int> ref_ids;
+
+    for (int i = start; i < N; i++) {
+      window_ids.insert(keyframes[i].id);
+    }
     for (const auto& [id, pose] : optimized_map_) {
       Eigen::Vector3d pos = pose.block<3, 1>(0, 3);
       Eigen::Matrix3d R = pose.block<3, 3>(0, 0);
@@ -273,6 +285,15 @@ void MapOptimization::optimize_thread() {
                                      quat.y(), quat.z(), quat.w()};
       pose_params[id] = params;
       problem.AddParameterBlock(params, 7);
+      if (window_ids.find(id) == window_ids.end()) {
+        problem.SetParameterBlockConstant(params);
+      } else {
+        for (auto& ref_id : keyframes[id].observations) {
+          if (ref_id.id != -1) {
+            ref_ids.insert(ref_id.id);
+          }
+        }
+      }
       // 设置四元数参数化
       // ceres::Manifold* quat_manifold = new ceres::EigenQuaternionManifold();
       // problem.SetManifold(params, quat_manifold);
@@ -289,14 +310,19 @@ void MapOptimization::optimize_thread() {
       double* params = new double[3]{pos.x(), pos.y(), pos.z()};
       reflector_params[id] = params;
       problem.AddParameterBlock(params, 3);
+      if (ref_ids.find(id) == ref_ids.end()) {
+        problem.SetParameterBlockConstant(params);
+      }
     }
     ref_lock.unlock();
     // 观测
     key_lock.lock();
     status.last_keyframe_num = keyframes.size();
     for (auto const& [id, frame] : keyframes) {
+      if (window_ids.find(id) == window_ids.end()) continue;
       for (auto const& obs : frame.observations) {
         if (obs.id == -1) continue;
+        if (ref_ids.find(obs.id) == ref_ids.end()) continue;
         auto cost = ObservationResidual::Create(obs.point);
         double* p1 = pose_params[id];
         double* p2 = reflector_params[obs.id];
@@ -306,6 +332,9 @@ void MapOptimization::optimize_thread() {
     key_lock.unlock();
 
     for (auto it : odoms) {
+      if (window_ids.find(it.last_id) == window_ids.end() ||
+          window_ids.find(it.cur_id) == window_ids.end())
+        continue;
       Eigen::Matrix4d R = it.last_pose.inverse() * it.current_pose;
       Eigen::Vector3d t = R.block<3, 1>(0, 3);
       Eigen::Matrix3d euler = R.block<3, 3>(0, 0);
@@ -368,10 +397,13 @@ void MapOptimization::optimize_thread() {
       status.first_optimize = false;
     }
     status.last_optimize_time = std::chrono::steady_clock::now();
-    map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
-                                         optimized_reflectors_);
-    map_manager_->save_map(".");
     RCLCPP_INFO(node_->get_logger(), "Optimization finished.");
+    std::thread([this]() {
+      map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                           optimized_reflectors_);
+      map_manager_->save_map(".");
+      RCLCPP_INFO(node_->get_logger(), "Map saved.");
+    }).detach();
   }
 }
 }  // namespace reflector_slam

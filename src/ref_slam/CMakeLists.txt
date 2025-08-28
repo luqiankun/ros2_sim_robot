@@ -20,8 +20,10 @@ find_package(custom_interfaces REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(YAML-CPP REQUIRED)
 file(GLOB_RECURSE SOURCE_SRCS src/*.cpp src/*.cc)
 include_directories(${EIGEN3_INCLUDE_DIRS})
+include_directories(${YAML_CPP_INCLUDE_DIR})
 add_executable(ref_slam_node
   ${SOURCE_SRCS}
 )
@@ -45,6 +47,7 @@ ament_target_dependencies(
 target_link_libraries(ref_slam_node
   ${CERES_LIBRARIES}
   ${OpenCV_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
 )
 
 if(BUILD_TESTING)

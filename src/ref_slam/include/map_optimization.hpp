@@ -183,7 +183,7 @@ class MapOptimization {
   Eigen::Matrix4d cur_pose_{Eigen::Matrix4d::Identity()};
 
   // ceres
-
+  int window_size{10};
   std::condition_variable cv;
   std::thread optimize_thread_;
   std::mutex optimize_mutex;

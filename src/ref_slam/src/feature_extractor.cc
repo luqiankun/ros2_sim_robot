@@ -216,7 +216,7 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
   result.block(0, 0, 3, 3) =
       Eigen::Quaterniond(pose[6], pose[3], pose[4], pose[5]).toRotationMatrix();
   result.block(0, 3, 3, 1) = Eigen::Vector3d(pose[0], pose[1], pose[2]);
-  std::cout << "final cost: " << err << std::endl;
+  // std::cout << "final cost: " << err << std::endl;
   return result;
 }
 }  // namespace reflector_slam
