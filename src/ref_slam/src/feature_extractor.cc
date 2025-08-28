@@ -40,7 +40,16 @@ class DSU {
   }
 };
 namespace reflector_slam {
-
+FeatureExtractor::FeatureExtractor(double cluster_threshold,
+                                   double max_distance, double min_radius,
+                                   double max_radius, double identify_threshold,
+                                   int max_iteration)
+    : min_radius_(min_radius),
+      max_radius_(max_radius),
+      cluster_threshold_(cluster_threshold),
+      max_distance_(max_distance),
+      max_iterations_(max_iteration),
+      identify_threshold_(identify_threshold) {}
 std::vector<Observation> FeatureExtractor::extract(
     const sensor_msgs::msg::LaserScan::SharedPtr& scan) {
   std::vector<Observation> observations;
@@ -48,7 +57,8 @@ std::vector<Observation> FeatureExtractor::extract(
 
   // Step 1: Extract candidate points with high intensity
   for (size_t i = 0; i < scan->ranges.size(); ++i) {
-    if (scan->intensities[i] > 0.8) {  // Threshold for reflectors
+    if (scan->intensities[i] >
+        identify_threshold_) {  // Threshold for reflectors
       Eigen::Vector3d point;
       point.x() = scan->ranges[i] *
                   std::cos(scan->angle_min + i * scan->angle_increment);
@@ -145,9 +155,8 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
   pose[4] = qua.y();
   pose[5] = qua.z();
   pose[6] = qua.w();
-  int max_iteration = 50;
   double err = -1;
-  for (int i = 0; i < max_iteration; ++i) {
+  for (int i = 0; i < max_iterations_; ++i) {
     ceres::Problem problem;
     // 最邻近
     std::unordered_map<int, int> map_matched;
@@ -159,7 +168,7 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     for (size_t i = 0; i < reflectors.size(); ++i) {
       if (reflectors[i].id != -1) continue;
       Eigen::Vector4d cur_pose = opt_pose * reflectors[i].point.homogeneous();
-      double min_distance = 1;
+      double min_distance = max_distance_;
       int best_match = -1;
 
       for (auto& [id, reflector] : map) {
@@ -184,13 +193,13 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
 
       } else {
         // 没有匹配
-        auto cost = UnmatchedResidual::Create(1);
+        auto cost = UnmatchedResidual::Create(0.5);
         problem.AddResidualBlock(cost, nullptr, pose);
       }
     }
     for (auto& [id, ref] : map) {
       if (map_matched.find(id) == map_matched.end()) {
-        auto cost = UnmatchedResidual::Create(1);
+        auto cost = UnmatchedResidual::Create(0.2);
         problem.AddResidualBlock(cost, nullptr, pose);
       }
     }

@@ -56,6 +56,11 @@ struct UnmatchedResidual {
 };
 class FeatureExtractor {
  public:
+  FeatureExtractor() = default;
+  FeatureExtractor(double cluster_threshold, double max_distance,
+                   double min_radius, double max_radius,
+                   double identify_threshold, int max_iteration);
+  ~FeatureExtractor() = default;
   class CircleCostFunction : public ceres::SizedCostFunction<1, 3> {
    public:
     CircleCostFunction(double x, double y) : x_(x), y_(y) {}
@@ -98,6 +103,8 @@ class FeatureExtractor {
   double max_radius_ = 0.04;        // 反光板最大半径
   double cluster_threshold_ = 0.1;  // 聚类阈值
   double max_distance_ = 0.3;
+  int max_iterations_ = 10;
+  double identify_threshold_ = 0.8;
 };
 }  // namespace reflector_slam
 #endif

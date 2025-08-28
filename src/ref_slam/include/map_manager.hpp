@@ -8,6 +8,8 @@
 namespace reflector_slam {
 class MapManager {
  public:
+  MapManager(double map_resolution, double map_origin_x, double map_origin_y,
+             double map_height, double map_width, const std::string& path);
   MapManager();
   bool load_from_file(const std::string& filename);
   std::unordered_map<int, Reflector> get_map() {
@@ -19,7 +21,7 @@ class MapManager {
       std::unordered_map<int, Keyframe>& keyframes,
       std::unordered_map<int, Eigen::Matrix4d>& pose,
       std::unordered_map<int, Eigen::Vector3d>& ref_pose);
-  void save_map(const std::string& path);
+  void save_map();
 
  private:
   bool valid{false};
@@ -27,6 +29,13 @@ class MapManager {
   cv::Mat map_image;       // 纯雷达
   cv::Mat comp_map_image;  // 复合信息，反光板，雷达，路径
   std::string ref_map;
+  // params
+  double map_resolution{0.05};
+  double map_width{1000};
+  double map_height{1000};
+  double map_origin_x{0};
+  double map_origin_y{0};
+  std::string save_path{"."};
 };
 }  // namespace reflector_slam
 

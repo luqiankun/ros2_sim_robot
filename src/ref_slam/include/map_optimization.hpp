@@ -135,7 +135,6 @@ struct OdometryResidual {
   const Eigen::Quaterniond delta_rotation_;        // 相对旋转
   const Eigen::Matrix<double, 6, 6> information_;  // 信息矩阵
 };
-
 struct OptimizateStatus {
   std::chrono::steady_clock::time_point last_optimize_time;
   int last_keyframe_num;
@@ -146,7 +145,12 @@ class MapOptimization {
  public:
   enum Mode { Loc, Slam };
   MapOptimization(rclcpp::Node::SharedPtr node);
-  ~MapOptimization() {}
+  ~MapOptimization() {
+    map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                         optimized_reflectors_);
+    map_manager_->save_map();
+    RCLCPP_INFO(node_->get_logger(), "Map saved.");
+  }
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void optimize();
@@ -181,7 +185,14 @@ class MapOptimization {
   visualization_msgs::msg::MarkerArray cur_markers;
   //
   Eigen::Matrix4d cur_pose_{Eigen::Matrix4d::Identity()};
-
+  double duplicates_threshold_{0.3};
+  double keyframe_distance_{0.5};
+  double keyframe_angle_{10};
+  int ref_share_count_{3};
+  // map sava
+  std::thread map_thread_;
+  std::mutex map_save_mutex;
+  std::condition_variable map_cv;
   // ceres
   int window_size{10};
   std::condition_variable cv;
@@ -189,6 +200,7 @@ class MapOptimization {
   std::mutex optimize_mutex;
   OptimizateStatus status;
   Mode mode{Slam};
+  std::atomic<int> last_opt_size_{0};
 };
 }  // namespace reflector_slam
 

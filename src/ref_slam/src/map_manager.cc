@@ -3,32 +3,44 @@
 #include <fstream>
 namespace reflector_slam {
 MapManager::MapManager() {
-  map_image = cv::Mat(4000, 4000, CV_8UC3, cv::Scalar(255, 255, 255));
-  comp_map_image = cv::Mat(4000, 4000, CV_8UC3, cv::Scalar(255, 255, 255));
+  map_image =
+      cv::Mat(map_height, map_width, CV_8UC3, cv::Scalar(255, 255, 255));
+  comp_map_image =
+      cv::Mat(map_height, map_width, CV_8UC3, cv::Scalar(255, 255, 255));
 }
+
+MapManager::MapManager(double map_resolution, double map_origin_x,
+                       double map_origin_y, double map_height, double map_width,
+                       const std::string& path)
+    : map_resolution(map_resolution),
+      map_width(map_width),
+      map_height(map_height),
+      map_origin_x(map_origin_x),
+      map_origin_y(map_origin_y),
+      save_path(path) {
+  map_image =
+      cv::Mat(map_height, map_width, CV_8UC3, cv::Scalar(255, 255, 255));
+  comp_map_image =
+      cv::Mat(map_height, map_width, CV_8UC3, cv::Scalar(255, 255, 255));
+}
+
 bool MapManager::generate_from_keyframe(
     std::unordered_map<int, Reflector>& reflectors,
     std::unordered_map<int, Keyframe>& keyframes,
     std::unordered_map<int, Eigen::Matrix4d>& pose,
     std::unordered_map<int, Eigen::Vector3d>& ref_pose)  // 每米对应像素
 {
-  double map_origin_x = -50;
-  double map_origin_y = -50;
-  double map_scale = 40.0;
+  double map_scale = 1 / map_resolution;
   if (keyframes.empty() || reflectors.empty()) {
     return false;
   }
-
+  map_image =
+      cv::Mat(map_height, map_width, CV_8UC3, cv::Scalar(255, 255, 255));
+  comp_map_image =
+      cv::Mat(map_height, map_width, CV_8UC3, cv::Scalar(255, 255, 255));
   map.clear();
   ref_map.clear();
   valid = false;
-  YAML::Emitter out;
-  out << YAML::BeginMap;
-  out << YAML::Key << "map_info" << YAML::Value << YAML::BeginMap << YAML::Key
-      << "source" << YAML::Value << "robot_A" << YAML::Key << "resolution"
-      << YAML::Value << 1 << YAML::Key << "origin" << YAML::Value << YAML::Flow
-      << std::vector<double>{0, 0, 0} << YAML::EndMap;
-  out << YAML::Key << "landmarks" << YAML::Value << YAML::BeginSeq;
 
   // 1. 更新 map 内部反光板（可选）
   for (auto& kv : reflectors) {
@@ -81,11 +93,6 @@ bool MapManager::generate_from_keyframe(
       int rid = obs.id;
       if (rid >= 0 && ref_pose.find(rid) != ref_pose.end()) {
         Eigen::Vector3d p = ref_pose[rid];  // 优化后的反光板
-        out << YAML::BeginMap;
-        out << YAML::Key << "id" << YAML::Value << rid;
-        out << YAML::Key << "x" << YAML::Value << p.x();
-        out << YAML::Key << "y" << YAML::Value << p.y();
-        out << YAML::EndMap;
         cv::circle(
             comp_map_image,
             cv::Point(static_cast<int>((p(0) - map_origin_x) * map_scale),
@@ -95,6 +102,21 @@ bool MapManager::generate_from_keyframe(
       }
     }
   }
+  YAML::Emitter out;
+  out << YAML::BeginMap;
+  out << YAML::Key << "map_info" << YAML::Value << YAML::BeginMap << YAML::Key
+      << "source" << YAML::Value << "robot_A" << YAML::Key << "resolution"
+      << YAML::Value << 1 << YAML::Key << "origin" << YAML::Value << YAML::Flow
+      << std::vector<double>{0, 0, 0} << YAML::EndMap;
+  out << YAML::Key << "landmarks" << YAML::Value << YAML::BeginSeq;
+  for (auto& [id, ref] : reflectors) {
+    Eigen::Vector3d p = ref_pose[id];  // 优化后的反光板
+    out << YAML::BeginMap;
+    out << YAML::Key << "id" << YAML::Value << id;
+    out << YAML::Key << "x" << YAML::Value << p.x();
+    out << YAML::Key << "y" << YAML::Value << p.y();
+    out << YAML::EndMap;
+  }
   out << YAML::EndSeq;
   out << YAML::EndMap;
   ref_map.clear();
@@ -103,10 +125,10 @@ bool MapManager::generate_from_keyframe(
   return true;
 }
 
-void MapManager::save_map(const std::string& path) {
-  cv::imwrite(path + "/map.png", map_image);
-  cv::imwrite(path + "/map_comp.png", comp_map_image);
-  std::ofstream ofs((path + "/map.yaml").c_str(),
+void MapManager::save_map() {
+  cv::imwrite(save_path + "/map.png", map_image);
+  cv::imwrite(save_path + "/map_comp.png", comp_map_image);
+  std::ofstream ofs((save_path + "/map.yaml").c_str(),
                     std::ios::out | std::ios::trunc);
   ofs << ref_map;
   ofs.close();

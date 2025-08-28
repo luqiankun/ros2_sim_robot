@@ -24,19 +24,80 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   //     "odom", 10,
   //     std::bind(&MapOptimization::odomCallback, this,
   //     std::placeholders::_1));
+  // 注意ROS2读参数层级关系是".",而不是"/"
+  node_->declare_parameter<int>("map_optimizer.window_size", 10);
+  node_->declare_parameter<double>("map_optimizer.duplicates_threshold", 0.3);
+  node_->declare_parameter<double>("map_optimizer.keyframe_distance", 0.5);
+  node_->declare_parameter<double>("map_optimizer.keyframe_angle", 10.0);
+  node_->declare_parameter<int>("map_optimizer.ref_share_count", 3);
+  node_->declare_parameter<std::string>("map_save.save_path", "./map");
+  node_->declare_parameter<int>("map_save.image_width", 1000);
+  node_->declare_parameter<int>("map_save.image_height", 1000);
+  node_->declare_parameter<double>("map_save.origin_x", -50);
+  node_->declare_parameter<double>("map_save.origin_y", -50);
+  node_->declare_parameter<double>("map_save.resolution", 0.1);
+  node_->declare_parameter<double>("ref_extractor.max_radius", 0.04);
+  node_->declare_parameter<double>("ref_extractor.min_radius", 0.03);
+  node_->declare_parameter<double>("ref_extractor.cluster_threshold", 0.1);
+  node_->declare_parameter<double>("ref_extractor.match_threshold", 0.3);
+  node_->declare_parameter<int>("ref_extractor.max_iterations", 10);
+  window_size = node->get_parameter_or<int>("map_optimizer.window_size", 10);
+  duplicates_threshold_ =
+      node->get_parameter_or<double>("map_optimizer.duplicates_threshold", 0.3);
+  keyframe_distance_ =
+      node->get_parameter_or<double>("map_optimizer.keyframe_distance", 0.5);
+  keyframe_angle_ =
+      node->get_parameter_or<double>("map_optimizer.keyframe_angle", 10.0);
+  ref_share_count_ =
+      node->get_parameter_or<int>("map_optimizer.ref_share_count", 3);
+
   laser_sub_ = node_->create_subscription<sensor_msgs::msg::LaserScan>(
       "lidar", 10,
       std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
       "reflector_markers", 10);
-  reflector_extractor_ = std::make_shared<FeatureExtractor>();
-  map_manager_ = std::make_shared<MapManager>();
+
+  double max_radius =
+      node->get_parameter_or<double>("ref_extractor.max_radius", 0.04);
+  double min_radius =
+      node->get_parameter_or<double>("ref_extractor.min_radius", 0.03);
+  double cluster_threshold =
+      node->get_parameter_or<double>("ref_extractor.cluster_threshold", 0.1);
+  double match_threshold =
+      node->get_parameter_or<double>("ref_extractor.match_threshold", 0.3);
+  int max_iterations =
+      node->get_parameter_or<int>("ref_extractor.max_iterations", 10);
+  double identify_threshold =
+      node->get_parameter_or<double>("ref_extractor.identify_threshold", 0.8);
+  reflector_extractor_ = std::make_shared<FeatureExtractor>(
+      cluster_threshold, match_threshold, min_radius, max_radius,
+      identify_threshold, max_iterations);
+
+  std::string save_path =
+      node->get_parameter_or<std::string>("map_save.save_path", "./map");
+  int image_width = node->get_parameter_or<int>("map_save.image_width", 1000);
+  int image_height = node->get_parameter_or<int>("map_save.image_height", 1000);
+  double origin_x = node->get_parameter_or<double>("map_save.origin_x", -50);
+  double origin_y = node->get_parameter_or<double>("map_save.origin_y", -50);
+  double resolution =
+      node->get_parameter_or<double>("map_save.resolution", 0.1);
+  map_manager_ = std::make_shared<MapManager>(
+      resolution, origin_x, origin_y, image_width, image_height, save_path);
   optimize_thread_ = std::thread(&MapOptimization::optimize_thread, this);
   optimize_and_save_service_ = node_->create_service<std_srvs::srv::Empty>(
       "optimize_and_save",
       std::bind(&MapOptimization::save_map, this, std::placeholders::_1,
                 std::placeholders::_2));
-  // TODO 地图优化改服务，只优化一次，优化所有关键帧
+  map_thread_ = std::thread([&] {
+    while (rclcpp::ok()) {
+      std::unique_lock<std::mutex> lock(map_save_mutex);
+      map_cv.wait(lock);
+      map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                           optimized_reflectors_);
+      map_manager_->save_map();
+      RCLCPP_INFO(node_->get_logger(), "Map saved.");
+    }
+  });
 }
 
 void MapOptimization::odomCallback(
@@ -61,7 +122,7 @@ void MapOptimization::odomCallback(
 bool MapOptimization::save_map(
     const std_srvs::srv::Empty::Request::SharedPtr&,
     const std_srvs::srv::Empty::Response::SharedPtr) {
-  cv.notify_all();
+  map_cv.notify_all();
   return true;
 }
 
@@ -112,7 +173,7 @@ void MapOptimization::laserCallback(
         Eigen::Vector3d pose = (cur_pose_ * x.point.homogeneous()).head<3>();
         bool exit = false;
         for (auto& x : map) {
-          if ((x.second.position - pose).norm() < 0.3) {
+          if ((x.second.position - pose).norm() < duplicates_threshold_) {
             exit = true;
             break;
           }
@@ -128,8 +189,8 @@ void MapOptimization::laserCallback(
       }
     }
     lock.unlock();
-    if (t.norm() > 0.5 || fabs(angle) > M_PI / 18 || own < 3) {
-      // 大于1米
+    if (t.norm() > keyframe_distance_ ||
+        fabs(angle) > keyframe_angle_ * M_PI / 180 || own < ref_share_count_) {
       Keyframe frame;
       frame.id = keyframes.size();
       frame.scan = msg;
@@ -160,7 +221,10 @@ void MapOptimization::laserCallback(
       keyframes[frame.id] = frame;
       optimized_map_[frame.id] = frame.pose;
       lock2.unlock();
-      // cv.notify_one();
+      // if ((keyframes.size() - last_opt_size_) > 1) {
+      //   cv.notify_all();
+      // }
+      cv.notify_one();
       // optimize();
     }
     {
@@ -259,23 +323,36 @@ void MapOptimization::reset_optimized_reflectors() {
 }
 
 void MapOptimization::optimize_thread() {
-  while (true) {
+  while (rclcpp::ok()) {
     std::unique_lock<std::mutex> lock(optimize_mutex);
-    cv.wait_for(lock, std::chrono::seconds(20));
+    cv.wait_for(lock, std::chrono::seconds(1));
+    auto st = std::chrono::steady_clock::now();
     std::unordered_map<int, double*> pose_params;  // 关键帧的位姿
+    std::unordered_map<int, std::pair<double*, double*>>
+        odom_params;  // 里程计的位姿
     std::unique_lock<std::mutex> key_lock(key_mutex);
-    if (keyframes.size() < 3) continue;
+    if (keyframes.size() < 2) continue;
+
+    bool all_opt{false};  // 全局优化
+    if (true) {
+      all_opt = true;
+    }
+    // if (last_opt_size_ == (int)keyframes.size()) all_opt = true;
     ceres::Problem problem;
     ceres::Solver::Options options;
     ceres::Solver::Summary summary;
     int N = keyframes.size();
     int start = std::max(0, N - window_size);
+    if (all_opt) {
+      start = 0;
+    }
     std::unordered_set<int> window_ids;
     std::unordered_set<int> ref_ids;
 
     for (int i = start; i < N; i++) {
       window_ids.insert(keyframes[i].id);
     }
+
     for (const auto& [id, pose] : optimized_map_) {
       Eigen::Vector3d pos = pose.block<3, 1>(0, 3);
       Eigen::Matrix3d R = pose.block<3, 3>(0, 0);
@@ -295,17 +372,27 @@ void MapOptimization::optimize_thread() {
         }
       }
       // 设置四元数参数化
-      // ceres::Manifold* quat_manifold = new ceres::EigenQuaternionManifold();
-      // problem.SetManifold(params, quat_manifold);
+      ceres::Manifold* pose_manifold = new ceres::ProductManifold(
+          new ceres::EuclideanManifold<3>(),    // 平移 tx,ty,tz
+          new ceres::EigenQuaternionManifold()  // 四元数 qx,qy,qz,qw
+      );
+      problem.SetManifold(params, pose_manifold);
 
       // 固定第一个位姿作为参考系
-      if (id == 0) {
+      if (id == start) {
         problem.SetParameterBlockConstant(params);
       }
     }
     key_lock.unlock();
+
     std::unordered_map<int, double*> reflector_params;
     std::unique_lock<std::mutex> ref_lock(ref_mutex);
+    if (all_opt) {
+      ref_ids.clear();
+      for (auto& x : map) {
+        ref_ids.insert(x.first);
+      }
+    }
     for (const auto& [id, pos] : optimized_reflectors_) {
       double* params = new double[3]{pos.x(), pos.y(), pos.z()};
       reflector_params[id] = params;
@@ -329,6 +416,7 @@ void MapOptimization::optimize_thread() {
         problem.AddResidualBlock(cost, new ceres::HuberLoss(0.1), p1, p2);
       }
     }
+    last_opt_size_ = keyframes.size();
     key_lock.unlock();
 
     for (auto it : odoms) {
@@ -354,20 +442,21 @@ void MapOptimization::optimize_thread() {
       q1.normalize();
       Eigen::Quaterniond q2(it.current_pose.block<3, 3>(0, 0));
       q2.normalize();
-      double params_1[7] = {p1.x(), p1.y(), p1.z(), q1.x(),
-                            q1.y(), q1.z(), q1.w()};
-      double params_2[7] = {p2.x(), p2.y(), p2.z(), q2.x(),
-                            q2.y(), q2.z(), q2.w()};
+      double* params_1 =
+          new double[7]{p1.x(), p1.y(), p1.z(), q1.x(), q1.y(), q1.z(), q1.w()};
+      double* params_2 =
+          new double[7]{p2.x(), p2.y(), p2.z(), q2.x(), q2.y(), q2.z(), q2.w()};
+      odom_params[odom_params.size()] = {params_1, params_2};
       problem.AddResidualBlock(cost_function, new ceres::HuberLoss(0.1),
                                params_1, params_2);
     }
     //
 
-    options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     options.num_threads = 4;
     options.max_num_iterations = 50;
     options.logging_type = ceres::PER_MINIMIZER_ITERATION;
-    options.minimizer_progress_to_stdout = true;
+    options.minimizer_progress_to_stdout = false;
     options.function_tolerance = 1e-8;
     ceres::Solve(options, &problem, &summary);
     for (const auto& [id, params] : pose_params) {
@@ -397,13 +486,11 @@ void MapOptimization::optimize_thread() {
       status.first_optimize = false;
     }
     status.last_optimize_time = std::chrono::steady_clock::now();
-    RCLCPP_INFO(node_->get_logger(), "Optimization finished.");
-    std::thread([this]() {
-      map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
-                                           optimized_reflectors_);
-      map_manager_->save_map(".");
-      RCLCPP_INFO(node_->get_logger(), "Map saved.");
-    }).detach();
+    auto ed = std::chrono::steady_clock::now();
+    RCLCPP_INFO(
+        node_->get_logger(), "Optimization finished  %d %ldms.", all_opt,
+        std::chrono::duration_cast<std::chrono::milliseconds>(ed - st).count());
+    map_cv.notify_one();
   }
 }
 }  // namespace reflector_slam
