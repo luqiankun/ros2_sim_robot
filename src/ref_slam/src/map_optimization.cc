@@ -36,6 +36,7 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   node_->declare_parameter<double>("map_save.origin_x", -50);
   node_->declare_parameter<double>("map_save.origin_y", -50);
   node_->declare_parameter<double>("map_save.resolution", 0.1);
+  node->declare_parameter<double>("ref_extractor.max_radius", 0.035);
   node_->declare_parameter<double>("ref_extractor.max_radius", 0.04);
   node_->declare_parameter<double>("ref_extractor.min_radius", 0.03);
   node_->declare_parameter<double>("ref_extractor.cluster_threshold", 0.1);
@@ -56,7 +57,7 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
       std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
       "reflector_markers", 10);
-
+  double radius = node->get_parameter_or<double>("ref_extractor.radius", 0.035);
   double max_radius =
       node->get_parameter_or<double>("ref_extractor.max_radius", 0.04);
   double min_radius =
@@ -70,7 +71,7 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   double identify_threshold =
       node->get_parameter_or<double>("ref_extractor.identify_threshold", 0.8);
   reflector_extractor_ = std::make_shared<FeatureExtractor>(
-      cluster_threshold, match_threshold, min_radius, max_radius,
+      radius, cluster_threshold, match_threshold, min_radius, max_radius,
       identify_threshold, max_iterations);
 
   std::string save_path =

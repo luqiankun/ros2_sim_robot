@@ -57,7 +57,7 @@ struct UnmatchedResidual {
 class FeatureExtractor {
  public:
   FeatureExtractor() = default;
-  FeatureExtractor(double cluster_threshold, double max_distance,
+  FeatureExtractor(double radius, double cluster_threshold, double max_distance,
                    double min_radius, double max_radius,
                    double identify_threshold, int max_iteration);
   ~FeatureExtractor() = default;
@@ -99,6 +99,7 @@ class FeatureExtractor {
 
  private:
   // 参数
+  double radius = 0.035;
   double min_radius_ = 0.03;        // 反光板最小半径
   double max_radius_ = 0.04;        // 反光板最大半径
   double cluster_threshold_ = 0.1;  // 聚类阈值

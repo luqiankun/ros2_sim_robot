@@ -40,11 +40,12 @@ class DSU {
   }
 };
 namespace reflector_slam {
-FeatureExtractor::FeatureExtractor(double cluster_threshold,
+FeatureExtractor::FeatureExtractor(double radius, double cluster_threshold,
                                    double max_distance, double min_radius,
                                    double max_radius, double identify_threshold,
                                    int max_iteration)
-    : min_radius_(min_radius),
+    : radius(radius),
+      min_radius_(min_radius),
       max_radius_(max_radius),
       cluster_threshold_(cluster_threshold),
       max_distance_(max_distance),
@@ -102,7 +103,7 @@ std::vector<Observation> FeatureExtractor::extract(
       const auto& first_point = points[id][0];
       double a = first_point.x();
       double b = first_point.y();
-      double r = 0.035;
+      double r = radius;
       // Calculate D, E, F from center (a, b) and radius r
       double D = -2 * a;
       double E = -2 * b;
