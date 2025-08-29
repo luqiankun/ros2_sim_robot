@@ -148,7 +148,7 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
                                         std::unordered_map<int, Reflector>& map,
                                         const Eigen::Matrix4d& odom_pose) {
   if (reflectors.empty() || map.empty()) {
-    return Eigen::Matrix4d::Identity();
+    return Eigen::Matrix4d::Zero();
   }
 
   double pose[7]{odom_pose(0, 3), odom_pose(1, 3), odom_pose(2, 3), 0, 0, 0, 1};
@@ -160,51 +160,58 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
   double err = -1;
   for (int i = 0; i < max_iterations_; ++i) {
     ceres::Problem problem;
-    // 最邻近
-    std::unordered_map<int, int> map_matched;
     Eigen::Matrix4d opt_pose = Eigen::Matrix4d::Identity();
     opt_pose.block(0, 0, 3, 3) =
         Eigen::Quaterniond(pose[6], pose[3], pose[4], pose[5])
             .toRotationMatrix();
     opt_pose.block(0, 3, 3, 1) = Eigen::Vector3d(pose[0], pose[1], pose[2]);
+
+    std::vector<int> map_ids;
+    map_ids.reserve(map.size());
+    for (auto& [id, ref] : map) map_ids.push_back(id);
+
+    std::vector<std::vector<double>> cost(
+        reflectors.size(), std::vector<double>(map_ids.size(), 1e6));
+
     for (size_t i = 0; i < reflectors.size(); ++i) {
-      if (reflectors[i].id != -1) continue;
       Eigen::Vector4d cur_pose = opt_pose * reflectors[i].point.homogeneous();
-      double min_distance = max_distance_;
-      int best_match = -1;
-
-      for (auto& [id, reflector] : map) {
-        if (map_matched.find(id) != map_matched.end()) {
-          continue;
-        }
-        Eigen::Vector4d dist = cur_pose - reflector.position.homogeneous();
-        double distance = dist.head<2>().norm();
-        if (distance < min_distance) {
-          min_distance = distance;
-          best_match = id;
-        }
-      }
-      if (best_match != -1) {
-        // 有匹配
-        reflectors[i].id = best_match;
-        map_matched[best_match] = 1;
-        reflectors[i].confidence = 1 - min_distance / max_distance_;
-        auto cost = MatchResidual::Create(reflectors[i].point,
-                                          map[best_match].position);
-        problem.AddResidualBlock(cost, new ceres::HuberLoss(0.5), pose);
-
-      } else {
-        // 没有匹配
-        auto cost = UnmatchedResidual::Create(0.5);
-        problem.AddResidualBlock(cost, nullptr, pose);
+      for (size_t j = 0; j < map_ids.size(); ++j) {
+        Eigen::Vector4d diff =
+            cur_pose - map[map_ids[j]].position.homogeneous();
+        double distance = diff.head<2>().norm();
+        cost[i][j] = distance;
       }
     }
+    // === Step 2: 匈牙利算法全局匹配 ===
+    Hungarian hungarian(cost);
+    auto assignment = hungarian.Solve();
+
+    std::unordered_map<int, int> map_matched;
+
+    // === Step 3: 根据匹配结果添加残差 ===
+    for (size_t i = 0; i < reflectors.size(); ++i) {
+      int j = assignment[i];
+      if (j == -1) continue;
+      double distance = cost[i][j];
+      if (distance < max_distance_) {
+        int best_match = map_ids[j];
+        reflectors[i].id = best_match;
+        reflectors[i].confidence = 1 - distance / max_distance_;
+        map_matched[best_match] = 1;
+        auto cost_func = MatchResidual::Create(reflectors[i].point,
+                                               map[best_match].position);
+        problem.AddResidualBlock(cost_func, new ceres::HuberLoss(0.5), pose);
+      }
+    }
+
+    // 未匹配的点（可选，弱约束）
     for (auto& [id, ref] : map) {
       if (map_matched.find(id) == map_matched.end()) {
-        auto cost = UnmatchedResidual::Create(0.2);
-        problem.AddResidualBlock(cost, nullptr, pose);
+        auto cost_func = UnmatchedResidual::Create(0.2);
+        problem.AddResidualBlock(cost_func, nullptr, pose);
       }
     }
+
     // Solve the problem
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_QR;

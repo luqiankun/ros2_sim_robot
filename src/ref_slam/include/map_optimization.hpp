@@ -25,10 +25,12 @@ class MapOptimization {
   enum Mode { Loc, Slam };
   MapOptimization(rclcpp::Node::SharedPtr node);
   ~MapOptimization() {
-    map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
-                                         optimized_reflectors_);
-    map_manager_->save_map();
-    RCLCPP_INFO(node_->get_logger(), "Map saved.");
+    if (mode == Slam) {
+      map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                           optimized_reflectors_);
+      map_manager_->save_map();
+      RCLCPP_INFO(node_->get_logger(), "Map saved.");
+    }
   }
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void optimize();

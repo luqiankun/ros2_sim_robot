@@ -12,7 +12,7 @@ ref_slam_node:
       max_radius: 0.04
       min_radius: 0.03
       cluster_threshold: 0.1
-      match_threshold: 0.7
+      match_threshold: 1.0
       max_iterations: 10
       identify_threshold: 0.8
 
@@ -22,3 +22,5 @@ ref_slam_node:
       keyframe_distance: 0.5
       keyframe_angle: 3.0 # degrees
       ref_share_count: 4
+    run_mode: loc # slam loc
+    map_path: "/home/luqk/ros2/sim/zc_sim/zc_cr/map.yaml"

@@ -1,6 +1,8 @@
 #include "../include/map_manager.hpp"
 
 #include <fstream>
+#include <rclcpp/logger.hpp>
+#include <rclcpp/logging.hpp>
 namespace reflector_slam {
 MapManager::MapManager() {
   map_image =
@@ -106,8 +108,8 @@ bool MapManager::generate_from_keyframe(
   out << YAML::BeginMap;
   out << YAML::Key << "map_info" << YAML::Value << YAML::BeginMap << YAML::Key
       << "source" << YAML::Value << "robot_A" << YAML::Key << "resolution"
-      << YAML::Value << 1 << YAML::Key << "origin" << YAML::Value << YAML::Flow
-      << std::vector<double>{0, 0, 0} << YAML::EndMap;
+      << YAML::Value << 1.0 << YAML::Key << "origin" << YAML::Value
+      << YAML::Flow << std::vector<double>{0, 0, 0} << YAML::EndMap;
   out << YAML::Key << "landmarks" << YAML::Value << YAML::BeginSeq;
   for (auto& [id, ref] : reflectors) {
     Eigen::Vector3d p = ref_pose[id];  // 优化后的反光板
@@ -124,7 +126,40 @@ bool MapManager::generate_from_keyframe(
   valid = true;
   return true;
 }
-
+bool MapManager::load_from_file(const std::string& path) {
+  map.clear();
+  ref_map.clear();
+  std::ifstream ifs(path);
+  if (!ifs.is_open()) {
+    return false;
+  }
+  YAML::Node node = YAML::Load(ifs);
+  if (!node["map_info"]) {
+    return false;
+  }
+  if (!node["landmarks"]) {
+    return false;
+  }
+  double resolution = node["map_info"]["resolution"].as<double>();
+  double ref_x = node["map_info"]["origin"][0].as<double>();
+  double ref_y = node["map_info"]["origin"][1].as<double>();
+  double ref_yaw = node["map_info"]["origin"][2].as<double>();
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+  T(0, 3) = ref_x;
+  T(1, 3) = ref_y;
+  Eigen::AngleAxis<double> rotate(ref_yaw, Eigen::Vector3d::UnitZ());
+  T.block<3, 3>(0, 0) = rotate.toRotationMatrix();
+  for (auto x : node["landmarks"]) {
+    int id = x["id"].as<int>();
+    double x_ = x["x"].as<double>();
+    double y_ = x["y"].as<double>();
+    Eigen::Vector4d p(x_, y_, 0, 1);
+    p = T * p * resolution;
+    map[id] = Reflector{p.head<3>(), id};
+  }
+  valid = true;
+  return true;
+}
 void MapManager::save_map() {
   cv::imwrite(save_path + "/map.png", map_image);
   cv::imwrite(save_path + "/map_comp.png", comp_map_image);

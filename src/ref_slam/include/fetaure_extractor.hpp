@@ -54,6 +54,71 @@ struct UnmatchedResidual {
  private:
   double weight_;  // 惩罚权重（根据传感器特性设置）
 };
+
+class Hungarian {
+ public:
+  Hungarian(const std::vector<std::vector<double>>& cost) : cost_(cost) {
+    n_ = cost.size();
+    m_ = cost.empty() ? 0 : cost[0].size();
+    u.assign(n_ + 1, 0);
+    v.assign(m_ + 1, 0);
+    p.assign(m_ + 1, 0);
+    way.assign(m_ + 1, 0);
+  }
+
+  std::vector<int> Solve() {
+    if (n_ == 0 || m_ == 0) return {};
+    for (int i = 1; i <= n_; ++i) {
+      p[0] = i;
+      int j0 = 0;
+      std::vector<double> minv(m_ + 1, std::numeric_limits<double>::infinity());
+      std::vector<char> used(m_ + 1, false);
+      do {
+        used[j0] = true;
+        int i0 = p[j0], j1 = 0;
+        double delta = std::numeric_limits<double>::infinity();
+        for (int j = 1; j <= m_; ++j) {
+          if (used[j]) continue;
+          double cur = cost_[i0 - 1][j - 1] - u[i0] - v[j];
+          if (cur < minv[j]) {
+            minv[j] = cur;
+            way[j] = j0;
+          }
+          if (minv[j] < delta) {
+            delta = minv[j];
+            j1 = j;
+          }
+        }
+        for (int j = 0; j <= m_; ++j) {
+          if (used[j]) {
+            u[p[j]] += delta;
+            v[j] -= delta;
+          } else {
+            minv[j] -= delta;
+          }
+        }
+        j0 = j1;
+      } while (p[j0] != 0);
+      do {
+        int j1 = way[j0];
+        p[j0] = p[j1];
+        j0 = j1;
+      } while (j0);
+    }
+    std::vector<int> ans(n_, -1);
+    for (int j = 1; j <= m_; ++j) {
+      if (p[j] > 0) ans[p[j] - 1] = j - 1;
+    }
+    return ans;
+  }
+
+ private:
+  int n_, m_;
+  std::vector<std::vector<double>> cost_;
+  std::vector<double> u, v;
+  std::vector<int> p, way;
+};
+
 class FeatureExtractor {
  public:
   FeatureExtractor() = default;

@@ -68,6 +68,17 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   node_->declare_parameter<double>("ref_extractor.cluster_threshold", 0.1);
   node_->declare_parameter<double>("ref_extractor.match_threshold", 0.3);
   node_->declare_parameter<int>("ref_extractor.max_iterations", 10);
+  node_->declare_parameter<std::string>("run_mode", "slam");
+
+  std::string mode_ = node_->get_parameter_or<std::string>("run_mode", "loc");
+  if (mode_ == "slam") {
+    mode = Mode::Slam;
+  } else if (mode_ == "loc") {
+    mode = Mode::Loc;
+  } else {
+    RCLCPP_FATAL(node_->get_logger(), "run_mode must be slam or loc.");
+    return;
+  }
   window_size = node->get_parameter_or<int>("map_optimizer.window_size", 10);
   duplicates_threshold_ =
       node->get_parameter_or<double>("map_optimizer.duplicates_threshold", 0.3);
@@ -77,12 +88,6 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
       node->get_parameter_or<double>("map_optimizer.keyframe_angle", 10.0);
   ref_share_count_ =
       node->get_parameter_or<int>("map_optimizer.ref_share_count", 3);
-
-  laser_sub_ = node_->create_subscription<sensor_msgs::msg::LaserScan>(
-      "lidar", 10,
-      std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
-  marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
-      "reflector_markers", 10);
   double radius = node->get_parameter_or<double>("ref_extractor.radius", 0.035);
   double max_radius =
       node->get_parameter_or<double>("ref_extractor.max_radius", 0.04);
@@ -110,21 +115,43 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
       node->get_parameter_or<double>("map_save.resolution", 0.1);
   map_manager_ = std::make_shared<MapManager>(
       resolution, origin_x, origin_y, image_width, image_height, save_path);
-  optimize_thread_ = std::thread(&MapOptimization::optimize_thread, this);
-  optimize_and_save_service_ = node_->create_service<std_srvs::srv::Empty>(
-      "optimize_and_save",
-      std::bind(&MapOptimization::save_map, this, std::placeholders::_1,
-                std::placeholders::_2));
-  map_thread_ = std::thread([&] {
-    while (rclcpp::ok()) {
-      std::unique_lock<std::mutex> lock(map_save_mutex);
-      map_cv.wait(lock);
-      map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
-                                           optimized_reflectors_);
-      map_manager_->save_map();
-      RCLCPP_INFO(node_->get_logger(), "Map saved.");
+
+  if (mode == Mode::Loc) {
+    node_->declare_parameter<std::string>("map_path");
+    std::string path =
+        node->get_parameter_or<std::string>("map_path", "map.yaml");
+    if (!map_manager_->load_from_file(path)) {
+      RCLCPP_FATAL(node_->get_logger(),
+                   "No map file found, please run slam first.");
+      return;
     }
-  });
+    map = map_manager_->get_map();
+    if (map.size() < 3) {
+      RCLCPP_FATAL(node_->get_logger(), "Map is too small.");
+      return;
+    }
+  } else if (mode == Mode::Slam) {
+    optimize_thread_ = std::thread(&MapOptimization::optimize_thread, this);
+    optimize_and_save_service_ = node_->create_service<std_srvs::srv::Empty>(
+        "optimize_and_save",
+        std::bind(&MapOptimization::save_map, this, std::placeholders::_1,
+                  std::placeholders::_2));
+    map_thread_ = std::thread([&] {
+      while (rclcpp::ok()) {
+        std::unique_lock<std::mutex> lock(map_save_mutex);
+        map_cv.wait(lock);
+        map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
+                                             optimized_reflectors_);
+        map_manager_->save_map();
+        RCLCPP_INFO(node_->get_logger(), "Map saved.");
+      }
+    });
+  }
+  laser_sub_ = node_->create_subscription<sensor_msgs::msg::LaserScan>(
+      "lidar", 10,
+      std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
+  marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
+      "reflector_markers", 10);
 }
 
 bool MapOptimization::save_map(
@@ -240,126 +267,17 @@ Eigen::Matrix4d MapOptimization::math_keyframe(const Keyframe& key_last,
 void MapOptimization::laserCallback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   auto cur_frame = reflector_extractor_->extract(msg);
-  std::unique_lock<std::mutex> lock(ref_mutex);
-  if (map.empty()) {
-    for (size_t i = 0; i < cur_frame.size(); ++i) {
-      Reflector ref;
-      ref.id = map.size();
-      ref.position = cur_frame[i].point;
-      map[ref.id] = ref;
-      optimized_reflectors_[ref.id] = ref.position;
-    }
-    Keyframe frame;
-    frame.id = keyframes.size();
-    frame.pose = cur_pose_;
-    frame.observations = cur_frame;
-    frame.timestamp = std::chrono::steady_clock::now();
-    keyframes[frame.id] = frame;
-    optimized_map_[frame.id] = frame.pose;
-    lock.unlock();
-  } else {
+
+  if (mode == Mode::Loc) {
     Eigen::Matrix4d cur_pose =
         reflector_extractor_->match(cur_frame, map, cur_pose_);
+    if (cur_pose == Eigen::Matrix4d::Zero()) {
+      RCLCPP_ERROR(node_->get_logger(), "No match found.");
+      return;
+    }
+    cur_pose_ = cur_pose;
     RCLCPP_INFO_STREAM(node_->get_logger(),
                        cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl);
-    Eigen::Matrix4d odom = keyframes[keyframes.size() - 1].pose.inverse() *
-                           cur_pose;  // T_cur_last
-    int own = 0;
-    for (auto& obs : keyframes[keyframes.size() - 1].observations) {
-      auto it =
-          std::find_if(cur_frame.begin(), cur_frame.end(),
-                       [&obs](const Observation& x) { return x.id == obs.id; });
-      if (it != cur_frame.end()) {
-        own++;
-      }
-    }
-    Eigen::Vector3d t = odom.block<3, 1>(0, 3);
-    Eigen::Quaterniond Qua(odom.block<3, 3>(0, 0));
-    Qua.normalize();
-    double angle = 2 * acos(Qua.w());  // yaw
-    cur_pose_ = cur_pose;
-    for (auto x : cur_frame) {
-      // 没有匹配的 新加入
-      if (x.id == -1) {
-        Eigen::Vector3d pose = (cur_pose_ * x.point.homogeneous()).head<3>();
-        bool exit = false;
-        for (auto& x : map) {
-          if ((x.second.position - pose).norm() < duplicates_threshold_) {
-            exit = true;
-            break;
-          }
-        }
-        if (!exit) {
-          Reflector ref;
-          ref.id = map.size();
-          ref.position = (cur_pose_ * x.point.homogeneous()).head<3>();
-          map[ref.id] = ref;
-          optimized_reflectors_[ref.id] = ref.position;
-          RCLCPP_INFO(node_->get_logger(), "new ref %d", ref.id);
-        }
-      }
-    }
-    lock.unlock();
-    if (t.norm() > keyframe_distance_ ||
-        fabs(angle) > keyframe_angle_ * M_PI / 180 ||
-        (t.norm() > keyframe_distance_ / 2 && own < 5)) {
-      Keyframe frame;
-      frame.timestamp = std::chrono::steady_clock::now();
-      frame.id = keyframes.size();
-      frame.scan = msg;
-      frame.pose = cur_pose;
-      for (auto& obs : cur_frame) {
-        if (obs.id != -1) {
-          frame.observations.push_back(obs);
-        }
-      }
-      frame.timestamp = std::chrono::steady_clock::now();
-      std::unique_lock<std::mutex> lock2(key_mutex);
-      if (keyframes.size() > 0) {
-        // 添加里程计信息
-        //
-        // auto last = keyframes[keyframes.size() - 1];
-        // Odometry odom;
-        // auto info_mat = createInformationMatrix(0.05, 0.05);
-        // for (int i = 0; i < 6; i++) {
-        //   for (int j = 0; j < 6; j++) {
-        //     odom.info[i][j] = info_mat(i, j);
-        //   }
-        // }
-        // odom.last_id = keyframes.size() - 1;
-        // odom.cur_id = keyframes.size();
-        // odom.last_pose = last.pose;
-        // odom.current_pose = cur_pose;
-        // odoms.push_back(odom);
-      }
-      {
-        auto ids = loop_close(frame);
-        for (auto& x : ids) {
-          Odometry odom_loop;
-          odom_loop.last_id = x;
-          odom_loop.cur_id = frame.id;
-          odom_loop.last_pose = keyframes[x].pose;
-          odom_loop.current_pose = frame.pose;
-          auto info_mat = createInformationMatrix(0.05, 0.05);
-          for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 6; j++) {
-              odom_loop.info[i][j] = info_mat(i, j);
-            }
-          }
-          RCLCPP_INFO(node_->get_logger(), "loop %d %d", x, frame.id);
-          odoms.push_back(odom_loop);
-          last_opt_size_ = keyframes.size();
-        }
-      }
-      keyframes[frame.id] = frame;
-      optimized_map_[frame.id] = frame.pose;
-      lock2.unlock();
-      // if ((keyframes.size() - last_opt_size_) > 1) {
-      //   cv.notify_all();
-      // }
-      cv.notify_one();
-      // optimize();
-    }
     {
       geometry_msgs::msg::TransformStamped transformStamped;
       transformStamped.header.stamp = node_->now();
@@ -378,10 +296,143 @@ void MapOptimization::laserCallback(
       tf2_ros::TransformBroadcaster transformBroadcaster(node_);
       transformBroadcaster.sendTransform(transformStamped);
     }
+    {
+      cur_markers = getMarkers(cur_frame);
+      if (cur_markers.markers.size() > 0) {
+        marker_pub_->publish(cur_markers);
+      }
+    }
 
-    cur_markers = getMarkers(cur_frame);
-    if (cur_markers.markers.size() > 0) {
-      marker_pub_->publish(cur_markers);
+  } else if (mode == Mode::Slam) {
+    std::unique_lock<std::mutex> lock(ref_mutex);
+    if (map.empty()) {
+      for (size_t i = 0; i < cur_frame.size(); ++i) {
+        Reflector ref;
+        ref.id = map.size();
+        ref.position = cur_frame[i].point;
+        map[ref.id] = ref;
+        optimized_reflectors_[ref.id] = ref.position;
+      }
+      Keyframe frame;
+      frame.id = keyframes.size();
+      frame.pose = cur_pose_;
+      frame.observations = cur_frame;
+      frame.timestamp = std::chrono::steady_clock::now();
+      keyframes[frame.id] = frame;
+      optimized_map_[frame.id] = frame.pose;
+      lock.unlock();
+    } else {
+      Eigen::Matrix4d cur_pose =
+          reflector_extractor_->match(cur_frame, map, cur_pose_);
+      if (cur_pose == Eigen::Matrix4d::Zero()) {
+        RCLCPP_ERROR(node_->get_logger(), "No match found.");
+        return;
+      }
+      RCLCPP_INFO_STREAM(node_->get_logger(),
+                         cur_pose(0, 3) << " " << cur_pose(1, 3) << std::endl);
+      Eigen::Matrix4d odom = keyframes[keyframes.size() - 1].pose.inverse() *
+                             cur_pose;  // T_cur_last
+      int own = 0;
+      for (auto& obs : keyframes[keyframes.size() - 1].observations) {
+        auto it = std::find_if(
+            cur_frame.begin(), cur_frame.end(),
+            [&obs](const Observation& x) { return x.id == obs.id; });
+        if (it != cur_frame.end()) {
+          own++;
+        }
+      }
+      Eigen::Vector3d t = odom.block<3, 1>(0, 3);
+      Eigen::Quaterniond Qua(odom.block<3, 3>(0, 0));
+      Qua.normalize();
+      double angle = 2 * acos(Qua.w());  // yaw
+      cur_pose_ = cur_pose;
+      for (auto x : cur_frame) {
+        // 没有匹配的 新加入
+        if (x.id == -1) {
+          Eigen::Vector3d pose = (cur_pose_ * x.point.homogeneous()).head<3>();
+          bool exit = false;
+          for (auto& x : map) {
+            if ((x.second.position - pose).norm() < duplicates_threshold_) {
+              exit = true;
+              break;
+            }
+          }
+          if (!exit) {
+            Reflector ref;
+            ref.id = map.size();
+            ref.position = (cur_pose_ * x.point.homogeneous()).head<3>();
+            map[ref.id] = ref;
+            optimized_reflectors_[ref.id] = ref.position;
+            RCLCPP_INFO(node_->get_logger(), "new ref %d", ref.id);
+          }
+        }
+      }
+      lock.unlock();
+      if (t.norm() > keyframe_distance_ ||
+          fabs(angle) > keyframe_angle_ * M_PI / 180 ||
+          (t.norm() > keyframe_distance_ / 2 && own < 5)) {
+        Keyframe frame;
+        frame.timestamp = std::chrono::steady_clock::now();
+        frame.id = keyframes.size();
+        frame.scan = msg;
+        frame.pose = cur_pose;
+        for (auto& obs : cur_frame) {
+          if (obs.id != -1) {
+            frame.observations.push_back(obs);
+          }
+        }
+        frame.timestamp = std::chrono::steady_clock::now();
+        std::unique_lock<std::mutex> lock2(key_mutex);
+        if (keyframes.size() > 0) {
+          // 添加里程计信息
+          //
+          // auto last = keyframes[keyframes.size() - 1];
+          // Odometry odom;
+          // auto info_mat = createInformationMatrix(0.05, 0.05);
+          // for (int i = 0; i < 6; i++) {
+          //   for (int j = 0; j < 6; j++) {
+          //     odom.info[i][j] = info_mat(i, j);
+          //   }
+          // }
+          // odom.last_id = keyframes.size() - 1;
+          // odom.cur_id = keyframes.size();
+          // odom.last_pose = last.pose;
+          // odom.current_pose = cur_pose;
+          // odoms.push_back(odom);
+        }
+        {
+          auto ids = loop_close(frame);
+          for (auto& x : ids) {
+            Odometry odom_loop;
+            odom_loop.last_id = x;
+            odom_loop.cur_id = frame.id;
+            odom_loop.last_pose = keyframes[x].pose;
+            odom_loop.current_pose = frame.pose;
+            auto info_mat = createInformationMatrix(0.05, 0.05);
+            for (int i = 0; i < 6; i++) {
+              for (int j = 0; j < 6; j++) {
+                odom_loop.info[i][j] = info_mat(i, j);
+              }
+            }
+            RCLCPP_INFO(node_->get_logger(), "loop %d %d", x, frame.id);
+            odoms.push_back(odom_loop);
+            last_opt_size_ = keyframes.size();
+          }
+        }
+        keyframes[frame.id] = frame;
+        optimized_map_[frame.id] = frame.pose;
+        lock2.unlock();
+        // if ((keyframes.size() - last_opt_size_) > 1) {
+        //   cv.notify_all();
+        // }
+        cv.notify_one();
+        // optimize();
+      }
+    
+      cur_markers = getMarkers(cur_frame);
+      if (cur_markers.markers.size() > 0) {
+        marker_pub_->publish(cur_markers);
+      }
     }
   }
 }
