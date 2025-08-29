@@ -17,8 +17,8 @@ ref_slam_node:
       identify_threshold: 0.8
 
     map_optimizer:
-      window_size: 10
+      window_size: 20
       duplicates_threshold: 1.0
       keyframe_distance: 0.5
-      keyframe_angle: 5.0 # degrees
-      ref_share_count: 3
+      keyframe_angle: 3.0 # degrees
+      ref_share_count: 4

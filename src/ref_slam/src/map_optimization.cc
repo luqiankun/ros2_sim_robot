@@ -5,6 +5,32 @@
 #include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2/convert.hpp>
 namespace reflector_slam {
+bool checkCollinearWithDirection(const std::vector<Eigen::Vector3d>& points,
+                                 Eigen::Vector3d& direction,
+                                 double epsilon = 1e-6) {
+  int n = points.size();
+  if (n < 2) {
+    // 少于2个点，不足以判断方向
+    direction = Eigen::Vector3d::Zero();
+    return true;
+  }
+
+  // 用第一个点和第二个点构建基准方向
+  Eigen::Vector3d baseVec = points[1] - points[0];
+  direction = baseVec.normalized();
+
+  for (int i = 2; i < n; ++i) {
+    Eigen::Vector3d vi = points[i] - points[0];
+    Eigen::Vector3d cross = baseVec.cross(vi);
+    if (cross.norm() > epsilon) {
+      // 叉积不为零，说明点不共线
+      return false;
+    }
+  }
+
+  // 共线，返回方向向量
+  return true;
+}
 Eigen::Matrix<double, 6, 6> createInformationMatrix(double trans_std,
                                                     double rot_std) {
   Eigen::Matrix<double, 6, 6> info = Eigen::Matrix<double, 6, 6>::Zero();
@@ -36,7 +62,7 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   node_->declare_parameter<double>("map_save.origin_x", -50);
   node_->declare_parameter<double>("map_save.origin_y", -50);
   node_->declare_parameter<double>("map_save.resolution", 0.1);
-  node->declare_parameter<double>("ref_extractor.max_radius", 0.035);
+  node->declare_parameter<double>("ref_extractor.radius", 0.035);
   node_->declare_parameter<double>("ref_extractor.max_radius", 0.04);
   node_->declare_parameter<double>("ref_extractor.min_radius", 0.03);
   node_->declare_parameter<double>("ref_extractor.cluster_threshold", 0.1);
@@ -101,25 +127,6 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   });
 }
 
-void MapOptimization::odomCallback(
-    const nav_msgs::msg::Odometry::SharedPtr msg) {
-  Eigen::Matrix4d lidar_to_base = Eigen::Matrix4d::Identity();
-  lidar_to_base(0, 3) = 1.125;
-
-  Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
-
-  transform(0, 3) = msg->pose.pose.position.x;
-  transform(1, 3) = msg->pose.pose.position.y;
-  transform(2, 3) = msg->pose.pose.position.z;
-  Eigen::Quaterniond q(
-      msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
-      msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
-  q.normalize();
-  transform.block<3, 3>(0, 0) = q.toRotationMatrix();
-  odom_pose = lidar_to_base.inverse() * transform *
-              lidar_to_base;  // odom是base_link下的变换，要转换到雷达坐标系下
-}
-
 bool MapOptimization::save_map(
     const std_srvs::srv::Empty::Request::SharedPtr&,
     const std_srvs::srv::Empty::Response::SharedPtr) {
@@ -127,6 +134,109 @@ bool MapOptimization::save_map(
   return true;
 }
 
+std::vector<int> MapOptimization::loop_close(const Keyframe& key) {
+  struct Choice {
+    int id;
+    int common;
+    double coss;
+  };
+  std::vector<Choice> choices_common;
+  std::vector<Choice> choices_coss;
+
+  for (auto& [id, history] : keyframes) {
+    if (std::chrono::duration_cast<std::chrono::seconds>(key.timestamp -
+                                                         history.timestamp)
+            .count() < 10)
+      continue;
+    if (key.id - id < 30) continue;
+    int num{0};
+    Eigen::Matrix4d transform = math_keyframe(history, key, num);
+    if (transform == Eigen::Matrix4d::Zero()) continue;
+    if (transform.block(0, 3, 3, 1).norm() < 2.0) continue;
+    choices_common.push_back({id, num, 0});
+    Eigen::Vector4d last_to_cur = transform * history.pose.block(0, 3, 4, 1);
+    choices_coss.push_back({id, 0, last_to_cur.head<3>().norm()});
+  }
+  if (choices_coss.empty()) return {};
+  std::sort(choices_coss.begin(), choices_coss.end(),
+            [](const Choice& a, const Choice& b) { return a.coss > b.coss; });
+  std::sort(
+      choices_common.begin(), choices_common.end(),
+      [](const Choice& a, const Choice& b) { return a.common > b.common; });
+  int N = std::min((int)choices_common.size(), 3);
+  std::vector<int> res;
+  for (int i = 0; i < N; i++) {
+    res.push_back(choices_common[i].id);
+  }
+  return res;
+}
+
+Eigen::Matrix4d MapOptimization::math_keyframe(const Keyframe& key_last,
+                                               const Keyframe& key_cur,
+                                               int& num) {
+  std::vector<Eigen::Vector3d> points_last;
+  std::vector<Eigen::Vector3d> points_cur;
+  for (auto& x : key_last.observations) {
+    for (auto& y : key_cur.observations) {
+      if (x.id == y.id) {
+        points_last.push_back(x.point);
+        points_cur.push_back(y.point);
+      }
+    }
+  }
+  if (points_last.size() < 3) {
+    num = 0;
+    return Eigen::Matrix4d::Zero();
+  }
+  Eigen::Vector3d direction;
+  if (checkCollinearWithDirection(points_last, direction)) {
+    num = 0;
+    return Eigen::Matrix4d::Zero();
+  }
+  //
+  // 转成 Eigen matrix
+  Eigen::MatrixXd P(3, points_last.size());
+  Eigen::MatrixXd Q(3, points_cur.size());
+  for (size_t i = 0; i < points_last.size(); i++) {
+    P.col(i) = points_last[i];
+    Q.col(i) = points_cur[i];
+  }
+
+  // 计算质心
+  Eigen::Vector3d p_mean = P.rowwise().mean();
+  Eigen::Vector3d q_mean = Q.rowwise().mean();
+
+  // 去中心化
+  Eigen::MatrixXd P_centered = P.colwise() - p_mean;
+  Eigen::MatrixXd Q_centered = Q.colwise() - q_mean;
+
+  // 计算协方差矩阵
+  Eigen::Matrix3d H = P_centered * Q_centered.transpose();
+
+  // SVD 分解
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      H, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Matrix3d U = svd.matrixU();
+  Eigen::Matrix3d V = svd.matrixV();
+
+  Eigen::Matrix3d R = V * U.transpose();
+
+  // 确保旋转矩阵没有反射
+  if (R.determinant() < 0) {
+    V.col(2) *= -1;
+    R = V * U.transpose();
+  }
+
+  // 平移向量
+  Eigen::Vector3d t = q_mean - R * p_mean;
+
+  // 构造齐次变换矩阵
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+  T.block<3, 3>(0, 0) = R;
+  T.block<3, 1>(0, 3) = t;
+  num = points_last.size();
+  return T;
+}
 void MapOptimization::laserCallback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   auto cur_frame = reflector_extractor_->extract(msg);
@@ -191,8 +301,10 @@ void MapOptimization::laserCallback(
     }
     lock.unlock();
     if (t.norm() > keyframe_distance_ ||
-        fabs(angle) > keyframe_angle_ * M_PI / 180 || own < ref_share_count_) {
+        fabs(angle) > keyframe_angle_ * M_PI / 180 ||
+        (t.norm() > keyframe_distance_ / 2 && own < 5)) {
       Keyframe frame;
+      frame.timestamp = std::chrono::steady_clock::now();
       frame.id = keyframes.size();
       frame.scan = msg;
       frame.pose = cur_pose;
@@ -205,19 +317,39 @@ void MapOptimization::laserCallback(
       std::unique_lock<std::mutex> lock2(key_mutex);
       if (keyframes.size() > 0) {
         // 添加里程计信息
-        auto last = keyframes[keyframes.size() - 1];
-        Odometry odom;
-        auto info_mat = createInformationMatrix(0.1, 0.1);
-        for (int i = 0; i < 6; i++) {
-          for (int j = 0; j < 6; j++) {
-            odom.info[i][j] = info_mat(i, j);
+        //
+        // auto last = keyframes[keyframes.size() - 1];
+        // Odometry odom;
+        // auto info_mat = createInformationMatrix(0.05, 0.05);
+        // for (int i = 0; i < 6; i++) {
+        //   for (int j = 0; j < 6; j++) {
+        //     odom.info[i][j] = info_mat(i, j);
+        //   }
+        // }
+        // odom.last_id = keyframes.size() - 1;
+        // odom.cur_id = keyframes.size();
+        // odom.last_pose = last.pose;
+        // odom.current_pose = cur_pose;
+        // odoms.push_back(odom);
+      }
+      {
+        auto ids = loop_close(frame);
+        for (auto& x : ids) {
+          Odometry odom_loop;
+          odom_loop.last_id = x;
+          odom_loop.cur_id = frame.id;
+          odom_loop.last_pose = keyframes[x].pose;
+          odom_loop.current_pose = frame.pose;
+          auto info_mat = createInformationMatrix(0.05, 0.05);
+          for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 6; j++) {
+              odom_loop.info[i][j] = info_mat(i, j);
+            }
           }
+          RCLCPP_INFO(node_->get_logger(), "loop %d %d", x, frame.id);
+          odoms.push_back(odom_loop);
+          last_opt_size_ = keyframes.size();
         }
-        odom.last_id = keyframes.size() - 1;
-        odom.cur_id = keyframes.size();
-        odom.last_pose = last.pose;
-        odom.current_pose = cur_pose;
-        odoms.push_back(odom);
       }
       keyframes[frame.id] = frame;
       optimized_map_[frame.id] = frame.pose;
@@ -335,9 +467,10 @@ void MapOptimization::optimize_thread() {
     if (keyframes.size() < 2) continue;
 
     bool all_opt{false};  // 全局优化
-    if (true) {
+    if (last_opt_size_ != 0) {
       all_opt = true;
     }
+    last_opt_size_ = 0;
     // if (last_opt_size_ == (int)keyframes.size()) all_opt = true;
     ceres::Problem problem;
     ceres::Solver::Options options;
@@ -417,16 +550,25 @@ void MapOptimization::optimize_thread() {
         problem.AddResidualBlock(cost, new ceres::HuberLoss(0.1), p1, p2);
       }
     }
-    last_opt_size_ = keyframes.size();
     key_lock.unlock();
 
     for (auto it : odoms) {
       if (window_ids.find(it.last_id) == window_ids.end() ||
           window_ids.find(it.cur_id) == window_ids.end())
         continue;
-      Eigen::Matrix4d R = it.last_pose.inverse() * it.current_pose;
-      Eigen::Vector3d t = R.block<3, 1>(0, 3);
-      Eigen::Matrix3d euler = R.block<3, 3>(0, 0);
+      int num = 0;
+      Eigen::Matrix4d T =
+          math_keyframe(keyframes[it.last_id], keyframes[it.cur_id], num);
+      Eigen::Vector3d t;
+      Eigen::Matrix3d euler;
+      if (T != Eigen::Matrix4d::Zero()) {
+        t = T.block<3, 1>(0, 3);
+        euler = T.block<3, 3>(0, 0);
+      } else {
+        Eigen::Matrix4d R = it.last_pose.inverse() * it.current_pose;
+        t = R.block<3, 1>(0, 3);
+        euler = R.block<3, 3>(0, 0);
+      }
       Eigen::Quaterniond q(euler);
       q.normalize();
       Eigen::Matrix<double, 6, 6> info;

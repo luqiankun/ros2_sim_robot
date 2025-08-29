@@ -129,6 +129,7 @@ std::vector<Observation> FeatureExtractor::extract(
       E = DEF[1];
       F = DEF[2];
       auto clusters = Observation();
+      clusters.timestamp = std::chrono::steady_clock::now();
       clusters.point.x() = -D / 2;
       clusters.point.y() = -E / 2;
       clusters.point.z() = 0;
