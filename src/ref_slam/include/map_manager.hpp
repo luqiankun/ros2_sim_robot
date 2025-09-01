@@ -21,6 +21,10 @@ class MapManager {
       std::unordered_map<int, Keyframe>& keyframes,
       std::unordered_map<int, Eigen::Matrix4d>& pose,
       std::unordered_map<int, Eigen::Vector3d>& ref_pose);
+  bool generate_occupancy_grid(
+      std::unordered_map<int, Keyframe>& keyframes,
+      std::unordered_map<int, Eigen::Matrix4d>& pose,
+      std::unordered_map<int, Eigen::Vector3d>& ref_pose);
   void save_map();
 
  private:
@@ -28,6 +32,7 @@ class MapManager {
   std::unordered_map<int, Reflector> map;
   cv::Mat map_image;       // 纯雷达
   cv::Mat comp_map_image;  // 复合信息，反光板，雷达，路径
+  cv::Mat occupancy_grid;
   std::string ref_map;
   // params
   double map_resolution{0.05};

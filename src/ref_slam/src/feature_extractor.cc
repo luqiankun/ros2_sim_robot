@@ -232,12 +232,16 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
       err = summary.final_cost;
       final_problem = std::move(problem);
       final_summary = std::move(summary);
+      matched_count_last = matched_count;
+      sum_distances_last = sum_distances;
       break;
     }
     err = summary.final_cost;
     if (summary.final_cost < 1e-4) {
       final_problem = std::move(problem);
       final_summary = std::move(summary);
+      matched_count_last = matched_count;
+      sum_distances_last = sum_distances;
       break;
     }
     if (i == max_iterations_ - 1) {
@@ -266,9 +270,7 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     std::vector<double> cov_block(7 * 7, 0.0);
     covariance.GetCovarianceBlock(pose, pose, cov_block.data());
     double pos_trace = cov_block[0] + cov_block[8] + cov_block[16];  // 3x3 diag
-    double map_extent = 150.0;  // 估计你的反光板地图大概直径 (米)
-    double scale_pos = 0.001 * map_extent;  // 可调参
-    double conf_from_cov = std::exp(-pos_trace / scale_pos);
+    double conf_from_cov = std::exp(-pos_trace / 10);
     conf_from_cov = std::clamp(conf_from_cov, 0.0, 1.0);
 
     // 2) 匹配质量
@@ -277,14 +279,15 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     double mean_residual =
         matched_count_last > 0 ? sum_distances_last / matched_count_last : 1e6;
     double norm_residual = std::exp(-mean_residual / (max_distance_ + 1e-6));
-
+    // std::cout << "norm_residual = " << norm_residual << std::endl;
+    // std::cout << "match_ratio = " << match_ratio << std::endl;
+    // std::cout << "conf_from_cov = " << conf_from_cov << std::endl;
     // 3) 融合
-    pose_confidence =
-        0.5 * conf_from_cov + 0.35 * match_ratio + 0.15 * norm_residual;
-    pose_confidence = std::clamp(pose_confidence, 0.0, 1.0);
+    pose_confidence = norm_residual;
+    // pose_confidence = std::clamp(pose_confidence, 0.0, 1.0);
   } else {
     std::cerr << "Covariance computation failed" << std::endl;
-    return Eigen::Matrix4d::Zero();
+    // return Eigen::Matrix4d::Zero();
   }
 
   std::cout << "pose_confidence = " << pose_confidence << std::endl;

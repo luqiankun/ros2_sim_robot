@@ -114,6 +114,7 @@ def generate_launch_description():
     ld.add_action(spawn_driver)
     ld.add_action(move_ctrl)
     ld.add_action(joystick)
+    # ld.add_action(IncludeLaunchDescription([os.path.join(get_package_share_directory('ref_slam'),'launch','ref_slam.launch.py')]))
     # ld.add_action(ref_detect)
 
     return ld

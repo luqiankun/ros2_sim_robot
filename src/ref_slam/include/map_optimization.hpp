@@ -28,6 +28,8 @@ class MapOptimization {
     if (mode == Slam) {
       map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
                                            optimized_reflectors_);
+      map_manager_->generate_occupancy_grid(keyframes, optimized_map_,
+                                            optimized_reflectors_);
       map_manager_->save_map();
       RCLCPP_INFO(node_->get_logger(), "Map saved.");
     }

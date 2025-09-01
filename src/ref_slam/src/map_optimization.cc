@@ -139,9 +139,11 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
     map_thread_ = std::thread([&] {
       while (rclcpp::ok()) {
         std::unique_lock<std::mutex> lock(map_save_mutex);
-        map_cv.wait(lock);
+        map_cv.wait_for(lock, std::chrono::seconds(10));
         map_manager_->generate_from_keyframe(map, keyframes, optimized_map_,
                                              optimized_reflectors_);
+        map_manager_->generate_occupancy_grid(keyframes, optimized_map_,
+                                              optimized_reflectors_);
         map_manager_->save_map();
         RCLCPP_INFO(node_->get_logger(), "Map saved.");
       }
@@ -150,8 +152,11 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
   laser_sub_ = node_->create_subscription<sensor_msgs::msg::LaserScan>(
       "lidar", 10,
       std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
+  auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
+  qos.reliable();
+  qos.durability_volatile();
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
-      "reflector_markers", 10);
+      "reflector_markers", rclcpp::QoS(qos));
 }
 
 bool MapOptimization::save_map(
@@ -296,12 +301,12 @@ void MapOptimization::laserCallback(
       tf2_ros::TransformBroadcaster transformBroadcaster(node_);
       transformBroadcaster.sendTransform(transformStamped);
     }
-    {
-      cur_markers = getMarkers(cur_frame);
-      if (cur_markers.markers.size() > 0) {
-        marker_pub_->publish(cur_markers);
-      }
-    }
+    // {
+    //   cur_markers = getMarkers(cur_frame);
+    //   if (cur_markers.markers.size() > 0) {
+    //     marker_pub_->publish(cur_markers);
+    //   }
+    // }
 
   } else if (mode == Mode::Slam) {
     std::unique_lock<std::mutex> lock(ref_mutex);
@@ -428,7 +433,24 @@ void MapOptimization::laserCallback(
         cv.notify_one();
         // optimize();
       }
-
+      {
+        geometry_msgs::msg::TransformStamped transformStamped;
+        transformStamped.header.stamp = node_->now();
+        transformStamped.header.frame_id = "map";
+        transformStamped.child_frame_id = "main_2d_lidar_link";
+        transformStamped.transform.translation.x = cur_pose_(0, 3);
+        transformStamped.transform.translation.y = cur_pose_(1, 3);
+        transformStamped.transform.translation.z = 1.9;
+        Eigen::Matrix3d q = cur_pose_.block<3, 3>(0, 0);
+        Eigen::Quaterniond quat(q);
+        quat.normalize();
+        transformStamped.transform.rotation.x = quat.x();
+        transformStamped.transform.rotation.y = quat.y();
+        transformStamped.transform.rotation.z = quat.z();
+        transformStamped.transform.rotation.w = quat.w();
+        tf2_ros::TransformBroadcaster transformBroadcaster(node_);
+        transformBroadcaster.sendTransform(transformStamped);
+      }
       // cur_markers = getMarkers(cur_frame);
       // if (cur_markers.markers.size() > 0) {
       //   marker_pub_->publish(cur_markers);
