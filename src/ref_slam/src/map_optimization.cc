@@ -150,13 +150,13 @@ MapOptimization::MapOptimization(rclcpp::Node::SharedPtr node) : node_(node) {
     });
   }
   laser_sub_ = node_->create_subscription<sensor_msgs::msg::LaserScan>(
-      "lidar", 10,
+      "lidar", 100,
       std::bind(&MapOptimization::laserCallback, this, std::placeholders::_1));
   auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
   qos.reliable();
   qos.durability_volatile();
   marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
-      "reflector_markers", rclcpp::QoS(qos));
+      "reflector_markers", 10);
 }
 
 bool MapOptimization::save_map(
@@ -178,9 +178,13 @@ std::vector<int> MapOptimization::loop_close(const Keyframe& key) {
   for (auto& [id, history] : keyframes) {
     if (std::chrono::duration_cast<std::chrono::seconds>(key.timestamp -
                                                          history.timestamp)
-            .count() < 10)
+            .count() < 30)
       continue;
-    if (key.id - id < 30) continue;
+    // std::cout << std::chrono::duration_cast<std::chrono::seconds>(
+    //                  key.timestamp - history.timestamp)
+    //                  .count()
+    //           << "  loop\n";
+    if (key.id - id < 50) continue;
     int num{0};
     Eigen::Matrix4d transform = math_keyframe(history, key, num);
     if (transform == Eigen::Matrix4d::Zero()) continue;
@@ -195,7 +199,7 @@ std::vector<int> MapOptimization::loop_close(const Keyframe& key) {
   std::sort(
       choices_common.begin(), choices_common.end(),
       [](const Choice& a, const Choice& b) { return a.common > b.common; });
-  int N = std::min((int)choices_common.size(), 3);
+  int N = std::min((int)choices_common.size(), 1);
   std::vector<int> res;
   for (int i = 0; i < N; i++) {
     res.push_back(choices_common[i].id);
@@ -391,19 +395,19 @@ void MapOptimization::laserCallback(
         if (keyframes.size() > 0) {
           // 添加里程计信息
           //
-          // auto last = keyframes[keyframes.size() - 1];
-          // Odometry odom;
-          // auto info_mat = createInformationMatrix(0.05, 0.05);
-          // for (int i = 0; i < 6; i++) {
-          //   for (int j = 0; j < 6; j++) {
-          //     odom.info[i][j] = info_mat(i, j);
-          //   }
-          // }
-          // odom.last_id = keyframes.size() - 1;
-          // odom.cur_id = keyframes.size();
-          // odom.last_pose = last.pose;
-          // odom.current_pose = cur_pose;
-          // odoms.push_back(odom);
+          auto last = keyframes[keyframes.size() - 1];
+          Odometry odom;
+          auto info_mat = createInformationMatrix(0.05, 0.05);
+          for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 6; j++) {
+              odom.info[i][j] = info_mat(i, j);
+            }
+          }
+          odom.last_id = keyframes.size() - 1;
+          odom.cur_id = keyframes.size();
+          odom.last_pose = last.pose;
+          odom.current_pose = cur_pose;
+          odoms.push_back(odom);
         }
         {
           auto ids = loop_close(frame);

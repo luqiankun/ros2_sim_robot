@@ -30,8 +30,7 @@ class MapManager {
  private:
   bool valid{false};
   std::unordered_map<int, Reflector> map;
-  cv::Mat map_image;       // 纯雷达
-  cv::Mat comp_map_image;  // 复合信息，反光板，雷达，路径
+  cv::Mat map_image;
   cv::Mat occupancy_grid;
   std::string ref_map;
   // params

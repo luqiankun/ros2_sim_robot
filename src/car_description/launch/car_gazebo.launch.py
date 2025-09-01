@@ -82,6 +82,7 @@ def generate_launch_description():
     move_ctrl=Node(
         package="move_ctrl",
         executable="move_node",
+        parameters=[{'use_sim_time': use_sim_time}],
     )
 
     spawn_robot_state_publisher = RegisterEventHandler(
