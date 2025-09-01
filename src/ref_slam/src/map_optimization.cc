@@ -428,11 +428,11 @@ void MapOptimization::laserCallback(
         cv.notify_one();
         // optimize();
       }
-    
-      cur_markers = getMarkers(cur_frame);
-      if (cur_markers.markers.size() > 0) {
-        marker_pub_->publish(cur_markers);
-      }
+
+      // cur_markers = getMarkers(cur_frame);
+      // if (cur_markers.markers.size() > 0) {
+      //   marker_pub_->publish(cur_markers);
+      // }
     }
   }
 }

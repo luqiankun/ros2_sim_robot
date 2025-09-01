@@ -158,6 +158,10 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
   pose[5] = qua.z();
   pose[6] = qua.w();
   double err = -1;
+  ceres::Problem final_problem;  // 最后一轮 problem
+  ceres::Solver::Summary final_summary;
+  int matched_count_last = 0;
+  double sum_distances_last = 0.0;
   for (int i = 0; i < max_iterations_; ++i) {
     ceres::Problem problem;
     Eigen::Matrix4d opt_pose = Eigen::Matrix4d::Identity();
@@ -187,7 +191,8 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     auto assignment = hungarian.Solve();
 
     std::unordered_map<int, int> map_matched;
-
+    int matched_count = 0;
+    double sum_distances = 0.0;
     // === Step 3: 根据匹配结果添加残差 ===
     for (size_t i = 0; i < reflectors.size(); ++i) {
       int j = assignment[i];
@@ -197,6 +202,8 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
         int best_match = map_ids[j];
         reflectors[i].id = best_match;
         reflectors[i].confidence = 1 - distance / max_distance_;
+        matched_count++;
+        sum_distances += distance;
         map_matched[best_match] = 1;
         auto cost_func = MatchResidual::Create(reflectors[i].point,
                                                map[best_match].position);
@@ -207,7 +214,7 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     // 未匹配的点（可选，弱约束）
     for (auto& [id, ref] : map) {
       if (map_matched.find(id) == map_matched.end()) {
-        auto cost_func = UnmatchedResidual::Create(0.2);
+        auto cost_func = UnmatchedResidual::Create(0.1);
         problem.AddResidualBlock(cost_func, nullptr, pose);
       }
     }
@@ -223,11 +230,21 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     // std::cout << summary.BriefReport() << std::endl;
     if (fabs(err - summary.final_cost) < 1e-4) {
       err = summary.final_cost;
+      final_problem = std::move(problem);
+      final_summary = std::move(summary);
       break;
     }
     err = summary.final_cost;
     if (summary.final_cost < 1e-4) {
+      final_problem = std::move(problem);
+      final_summary = std::move(summary);
       break;
+    }
+    if (i == max_iterations_ - 1) {
+      final_problem = std::move(problem);
+      final_summary = summary;
+      matched_count_last = matched_count;
+      sum_distances_last = sum_distances;
     }
   }
   Eigen::Matrix4d result = Eigen::Matrix4d::Identity();
@@ -235,6 +252,43 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
       Eigen::Quaterniond(pose[6], pose[3], pose[4], pose[5]).toRotationMatrix();
   result.block(0, 3, 3, 1) = Eigen::Vector3d(pose[0], pose[1], pose[2]);
   // std::cout << "final cost: " << err << std::endl;
+
+  double pose_confidence = 0.0;
+  ceres::Covariance::Options cov_options;
+  ceres::Covariance covariance(cov_options);
+  std::vector<std::pair<const double*, const double*>> cov_blocks;
+  cov_blocks.emplace_back(pose, pose);
+  if (matched_count_last <= 0) {
+    // std::cerr << "No matched reflectors" << std::endl;
+    return Eigen::Matrix4d::Zero();
+  }
+  if (covariance.Compute(cov_blocks, &final_problem)) {
+    std::vector<double> cov_block(7 * 7, 0.0);
+    covariance.GetCovarianceBlock(pose, pose, cov_block.data());
+    double pos_trace = cov_block[0] + cov_block[8] + cov_block[16];  // 3x3 diag
+    double map_extent = 150.0;  // 估计你的反光板地图大概直径 (米)
+    double scale_pos = 0.001 * map_extent;  // 可调参
+    double conf_from_cov = std::exp(-pos_trace / scale_pos);
+    conf_from_cov = std::clamp(conf_from_cov, 0.0, 1.0);
+
+    // 2) 匹配质量
+    double match_ratio =
+        (map.size() > 0) ? (double)matched_count_last / map.size() : 0.0;
+    double mean_residual =
+        matched_count_last > 0 ? sum_distances_last / matched_count_last : 1e6;
+    double norm_residual = std::exp(-mean_residual / (max_distance_ + 1e-6));
+
+    // 3) 融合
+    pose_confidence =
+        0.5 * conf_from_cov + 0.35 * match_ratio + 0.15 * norm_residual;
+    pose_confidence = std::clamp(pose_confidence, 0.0, 1.0);
+  } else {
+    std::cerr << "Covariance computation failed" << std::endl;
+    return Eigen::Matrix4d::Zero();
+  }
+
+  std::cout << "pose_confidence = " << pose_confidence << std::endl;
+
   return result;
 }
 }  // namespace reflector_slam
