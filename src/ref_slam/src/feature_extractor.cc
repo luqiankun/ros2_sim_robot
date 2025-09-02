@@ -188,15 +188,12 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
         cost[i][j] = distance;
       }
     }
+
     // === Step 2: 匈牙利算法全局匹配 ===
-    // auto st = std::chrono::steady_clock::now();
-    Hungarian hungarian(cost);
+    HungarianSafe hungarian(cost);
     auto assignment = hungarian.Solve();
-    // auto ed = std::chrono::steady_clock::now();
-    // auto dur =
-    //     std::chrono::duration_cast<std::chrono::milliseconds>(ed -
-    //     st).count();
-    // std::cerr << dur << " ms\n";
+
+
     std::unordered_map<int, int> map_matched;
     int matched_count = 0;
     double sum_distances = 0.0;

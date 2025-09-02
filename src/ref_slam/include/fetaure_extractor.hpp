@@ -55,9 +55,9 @@ struct UnmatchedResidual {
   double weight_;  // 惩罚权重（根据传感器特性设置）
 };
 
-class Hungarian {
+class HungarianSafe {
  public:
-  Hungarian(const std::vector<std::vector<double>>& cost) : cost_(cost) {
+  HungarianSafe(const std::vector<std::vector<double>>& cost) : cost_(cost) {
     n_ = cost.size();
     m_ = cost.empty() ? 0 : cost[0].size();
     u.assign(n_ + 1, 0);
@@ -68,15 +68,28 @@ class Hungarian {
 
   std::vector<int> Solve() {
     if (n_ == 0 || m_ == 0) return {};
+
+    // 将异常值替换为一个大数
+    const double MAX_COST = 1e9;
+    for (int i = 0; i < n_; ++i)
+      for (int j = 0; j < m_; ++j)
+        if (std::isnan(cost_[i][j]) || std::isinf(cost_[i][j]))
+          cost_[i][j] = MAX_COST;
+
     for (int i = 1; i <= n_; ++i) {
       p[0] = i;
       int j0 = 0;
-      std::vector<double> minv(m_ + 1, std::numeric_limits<double>::infinity());
+      std::vector<double> minv(m_ + 1, MAX_COST);
       std::vector<char> used(m_ + 1, false);
+
+      int loop_counter = 0;
+      const int MAX_LOOP = 1000;
+
       do {
         used[j0] = true;
         int i0 = p[j0], j1 = 0;
-        double delta = std::numeric_limits<double>::infinity();
+        double delta = MAX_COST;
+
         for (int j = 1; j <= m_; ++j) {
           if (used[j]) continue;
           double cur = cost_[i0 - 1][j - 1] - u[i0] - v[j];
@@ -89,6 +102,7 @@ class Hungarian {
             j1 = j;
           }
         }
+
         for (int j = 0; j <= m_; ++j) {
           if (used[j]) {
             u[p[j]] += delta;
@@ -97,17 +111,29 @@ class Hungarian {
             minv[j] -= delta;
           }
         }
+
         j0 = j1;
+        loop_counter++;
+        if (loop_counter > MAX_LOOP) {
+          std::cerr << "Hungarian loop exceeded max iterations! Breaking..."
+                    << std::endl;
+          break;
+        }
+
       } while (p[j0] != 0);
-      do {
+
+      // 更新匹配路径
+      while (j0) {
         int j1 = way[j0];
         p[j0] = p[j1];
         j0 = j1;
-      } while (j0);
+      }
     }
+
+    // 构建结果
     std::vector<int> ans(n_, -1);
     for (int j = 1; j <= m_; ++j) {
-      if (p[j] > 0) ans[p[j] - 1] = j - 1;
+      if (p[j] > 0 && p[j] <= n_) ans[p[j] - 1] = j - 1;
     }
     return ans;
   }
