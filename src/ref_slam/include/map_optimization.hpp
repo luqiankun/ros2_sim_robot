@@ -46,6 +46,7 @@ class MapOptimization {
                 const std_srvs::srv::Empty::Response::SharedPtr response);
   visualization_msgs::msg::MarkerArray getMarkers(
       const std::vector<Observation>& refs);
+  void loop();
 
  private:
   rclcpp::Node::SharedPtr node_;
@@ -86,6 +87,10 @@ class MapOptimization {
   OptimizateStatus status;
   Mode mode{Slam};
   std::atomic<int> last_opt_size_{0};
+  std::queue<sensor_msgs::msg::LaserScan::SharedPtr> task_queue;
+  std::condition_variable task_cv;
+  std::mutex task_mutex;
+  std::thread task_th;
 };
 }  // namespace reflector_slam
 

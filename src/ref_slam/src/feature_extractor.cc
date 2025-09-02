@@ -1,4 +1,6 @@
 #include <cmath>
+#include <rclcpp/logger.hpp>
+#include <rclcpp/logging.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -187,9 +189,14 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
       }
     }
     // === Step 2: 匈牙利算法全局匹配 ===
+    // auto st = std::chrono::steady_clock::now();
     Hungarian hungarian(cost);
     auto assignment = hungarian.Solve();
-
+    // auto ed = std::chrono::steady_clock::now();
+    // auto dur =
+    //     std::chrono::duration_cast<std::chrono::milliseconds>(ed -
+    //     st).count();
+    // std::cerr << dur << " ms\n";
     std::unordered_map<int, int> map_matched;
     int matched_count = 0;
     double sum_distances = 0.0;
@@ -212,12 +219,12 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     }
 
     // 未匹配的点（可选，弱约束）
-    for (auto& [id, ref] : map) {
-      if (map_matched.find(id) == map_matched.end()) {
-        auto cost_func = UnmatchedResidual::Create(0.1);
-        problem.AddResidualBlock(cost_func, nullptr, pose);
-      }
-    }
+    // for (auto& [id, ref] : map) {
+    //   if (map_matched.find(id) == map_matched.end()) {
+    //     auto cost_func = UnmatchedResidual::Create(0.1);
+    //     problem.AddResidualBlock(cost_func, nullptr, pose);
+    //   }
+    // }
 
     // Solve the problem
     ceres::Solver::Options options;
@@ -257,41 +264,16 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
   result.block(0, 3, 3, 1) = Eigen::Vector3d(pose[0], pose[1], pose[2]);
   // std::cout << "final cost: " << err << std::endl;
 
-  double pose_confidence = 0.0;
-  ceres::Covariance::Options cov_options;
-  ceres::Covariance covariance(cov_options);
-  std::vector<std::pair<const double*, const double*>> cov_blocks;
-  cov_blocks.emplace_back(pose, pose);
   if (matched_count_last <= 0) {
     // std::cerr << "No matched reflectors" << std::endl;
     return Eigen::Matrix4d::Zero();
   }
-  if (covariance.Compute(cov_blocks, &final_problem)) {
-    std::vector<double> cov_block(7 * 7, 0.0);
-    covariance.GetCovarianceBlock(pose, pose, cov_block.data());
-    double pos_trace = cov_block[0] + cov_block[8] + cov_block[16];  // 3x3 diag
-    double conf_from_cov = std::exp(-pos_trace / 10);
-    conf_from_cov = std::clamp(conf_from_cov, 0.0, 1.0);
-
-    // 2) 匹配质量
-    double match_ratio =
-        (map.size() > 0) ? (double)matched_count_last / map.size() : 0.0;
-    double mean_residual =
-        matched_count_last > 0 ? sum_distances_last / matched_count_last : 1e6;
-    double norm_residual = std::exp(-mean_residual / (max_distance_ + 1e-6));
-    // std::cout << "norm_residual = " << norm_residual << std::endl;
-    // std::cout << "match_ratio = " << match_ratio << std::endl;
-    // std::cout << "conf_from_cov = " << conf_from_cov << std::endl;
-    // 3) 融合
-    pose_confidence = norm_residual;
-    // pose_confidence = std::clamp(pose_confidence, 0.0, 1.0);
-  } else {
-    std::cerr << "Covariance computation failed" << std::endl;
-    // return Eigen::Matrix4d::Zero();
-  }
-
-  std::cout << "pose_confidence = " << pose_confidence << std::endl;
-
+  double mean_residual =
+      matched_count_last > 0 ? sum_distances_last / matched_count_last : 1e6;
+  double norm_residual = std::exp(-mean_residual / (max_distance_ + 1e-6));
+  // std::cout << "pose_confidence = " << pose_confidence << std::endl;
+  RCLCPP_INFO(rclcpp::get_logger("ref_slam_node"), "pose_confidence = %f",
+              norm_residual);
   return result;
 }
 }  // namespace reflector_slam

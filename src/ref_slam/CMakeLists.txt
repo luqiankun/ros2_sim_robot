@@ -7,6 +7,7 @@ endif()
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # find dependencies
+find_package(OpenMP REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -48,6 +49,7 @@ target_link_libraries(ref_slam_node
   ${CERES_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+  OpenMP::OpenMP_CXX
 )
 
 if(BUILD_TESTING)

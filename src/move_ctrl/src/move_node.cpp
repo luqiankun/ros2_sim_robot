@@ -223,7 +223,7 @@ Odomtry::Odomtry(rclcpp::Node::SharedPtr node, const Chassis& chassis)
   can_sub = node->create_subscription<can_msgs::msg::Frame>(
       can_rx_topic, 10,
       std::bind(&Odomtry::can_callback, this, std::placeholders::_1));
-  timer = node->create_wall_timer(std::chrono::milliseconds(100),
+  timer = node->create_wall_timer(std::chrono::milliseconds(10),
                                   std::bind(&Odomtry::timer_callback, this));
   set_odom_service = node->create_service<custom_interfaces::srv::SetOdom>(
       "set_odom",
@@ -289,7 +289,7 @@ void Odomtry::timer_callback() {
       transformStamped.header.stamp = node->now();
       transformStamped.header.frame_id = "map";
       transformStamped.child_frame_id = "odom";
-      transformStamped.transform.translation.x = m_x;
+      transformStamped.transform.translation.x = m_x - 1.125;
       transformStamped.transform.translation.y = m_y;
       transformStamped.transform.translation.z = 0.0;
       transformStamped.transform.rotation = quat;

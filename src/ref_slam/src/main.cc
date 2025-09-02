@@ -4,9 +4,13 @@
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("ref_slam_node");
-  auto map = std::make_shared<reflector_slam::MapOptimization>(node);
   node->set_parameter(rclcpp::Parameter("use_sim_time", true));
-  rclcpp::spin(node);
+  auto map = std::make_shared<reflector_slam::MapOptimization>(node);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+
+  executor.spin();
+
   rclcpp::shutdown();
   return 0;
 }

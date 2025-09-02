@@ -1,6 +1,7 @@
 #include "../include/map_manager.hpp"
 
 #include <fstream>
+#include <opencv2/core/parallel/backend/parallel_for.openmp.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/logging.hpp>
 namespace reflector_slam {
@@ -107,6 +108,7 @@ void MapManager::save_map() {
   ofs << ref_map;
   ofs.close();
 }
+
 bool MapManager::generate_occupancy_grid(
     std::unordered_map<int, Keyframe>& keyframes,
     std::unordered_map<int, Eigen::Matrix4d>& pose,
@@ -114,58 +116,55 @@ bool MapManager::generate_occupancy_grid(
   int grid_width = static_cast<int>(map_width);
   int grid_height = static_cast<int>(map_height);
 
-  // 1️⃣ log-odds 栅格初始化
-  cv::Mat log_odds(grid_height, grid_width, CV_32FC1,
-                   cv::Scalar(0.0f));  // l=0 -> p=0.5
-  float l_occ = 0.85f;                 // 占据格增量
-  float l_free = -0.4f;                // 空闲格增量
-  float l_min = -2.0f, l_max = 3.5f;
+  cv::Mat log_odds(grid_height, grid_width, CV_32FC1, cv::Scalar(0.0f));
+  float l_occ = 0.85f, l_free = -0.4f, l_min = -2.0f, l_max = 3.5f;
 
-  // 2️⃣ 遍历关键帧
-  for (auto& kv : keyframes) {
-    Keyframe& kf = kv.second;
-    if (pose.find(kv.first) == pose.end()) continue;
-    Eigen::Matrix4d T = pose[kv.first];  // world <- sensor
+  // 收集有效关键帧指针
+  std::vector<Keyframe*> frame_ptrs;
+  for (auto& kv : keyframes)
+    if (pose.find(kv.first) != pose.end()) frame_ptrs.push_back(&kv.second);
 
+// 并行处理每个关键帧
+#pragma omp parallel for schedule(dynamic)
+  for (int idx = 0; idx < static_cast<int>(frame_ptrs.size()); ++idx) {
+    Keyframe* kf = frame_ptrs[idx];
+    Eigen::Matrix4d T = pose.at(kf->id);
     Eigen::Vector3d sensor_origin = T.block<3, 1>(0, 3);
 
-    // 激光点更新
-    if (kf.scan) {
-      for (size_t i = 0; i < kf.scan->ranges.size(); i++) {
-        float r = kf.scan->ranges[i];
-        if (r < kf.scan->range_min || r > kf.scan->range_max) continue;
-        float angle = kf.scan->angle_min + i * kf.scan->angle_increment;
+    cv::Mat local_log(grid_height, grid_width, CV_32FC1, cv::Scalar(0.0f));
 
-        Eigen::Vector4d p_sensor(r * cos(angle), r * sin(angle), 0.0, 1.0);
+    if (kf->scan) {
+      size_t N = kf->scan->ranges.size();
+      for (size_t i = 0; i < N; ++i) {
+        float r = kf->scan->ranges[i];
+        float angle = kf->scan->angle_min + i * kf->scan->angle_increment;
+
+        bool hit_object =
+            (r >= kf->scan->range_min && r <= kf->scan->range_max);
+        float r_effective = hit_object ? r : kf->scan->range_max;
+
+        Eigen::Vector4d p_sensor(r_effective * cos(angle),
+                                 r_effective * sin(angle), 0.0, 1.0);
         Eigen::Vector4d p_world = T * p_sensor;
 
         int gx = static_cast<int>((p_world(0) - map_origin_x) / map_resolution);
         int gy = grid_height - 1 -
                  static_cast<int>((p_world(1) - map_origin_y) / map_resolution);
-
-        // 占据格
-        if (gx >= 0 && gx < grid_width && gy >= 0 && gy < grid_height) {
-          log_odds.at<float>(gy, gx) = std::min(
-              std::max(log_odds.at<float>(gy, gx) + l_occ, l_min), l_max);
-        }
-
-        // 空闲格：Bresenham射线
         int x0 = static_cast<int>((sensor_origin(0) - map_origin_x) /
                                   map_resolution);
         int y0 = grid_height - 1 -
                  static_cast<int>((sensor_origin(1) - map_origin_y) /
                                   map_resolution);
-        int x1 = gx, y1 = gy;
 
-        int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-        int dy = abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-        int err = dx - dy;
-        int cx = x0, cy = y0;
-        while (true) {
+        // Bresenham 空闲更新
+        int dx = abs(gx - x0), sx = x0 < gx ? 1 : -1;
+        int dy = abs(gy - y0), sy = y0 < gy ? 1 : -1;
+        int err = dx - dy, cx = x0, cy = y0;
+
+        while (cx != gx || cy != gy) {
           if (cx >= 0 && cx < grid_width && cy >= 0 && cy < grid_height)
-            log_odds.at<float>(cy, cx) = std::min(
-                std::max(log_odds.at<float>(cy, cx) + l_free, l_min), l_max);
-          if (cx == x1 && cy == y1) break;
+            local_log.at<float>(cy, cx) = std::min(
+                std::max(local_log.at<float>(cy, cx) + l_free, l_min), l_max);
           int e2 = 2 * err;
           if (e2 > -dy) {
             err -= dy;
@@ -176,13 +175,23 @@ bool MapManager::generate_occupancy_grid(
             cy += sy;
           }
         }
+
+        // 终点
+        if (gx >= 0 && gx < grid_width && gy >= 0 && gy < grid_height) {
+          if (hit_object)
+            local_log.at<float>(gy, gx) = std::min(
+                std::max(local_log.at<float>(gy, gx) + l_occ, l_min), l_max);
+          else
+            local_log.at<float>(gy, gx) = std::min(
+                std::max(local_log.at<float>(gy, gx) + l_free, l_min), l_max);
+        }
       }
     }
 
-    // 反光板占据
-    for (auto& obs : kf.observations) {
+    // 反光板占据格
+    for (auto& obs : kf->observations) {
       if (ref_pose.find(obs.id) == ref_pose.end()) continue;
-      Eigen::Vector3d p = ref_pose[obs.id];
+      Eigen::Vector3d p = ref_pose.at(obs.id);
       int gx = static_cast<int>((p(0) - map_origin_x) / map_resolution);
       int gy = grid_height - 1 -
                static_cast<int>((p(1) - map_origin_y) / map_resolution);
@@ -190,42 +199,42 @@ bool MapManager::generate_occupancy_grid(
         for (int dy = -1; dy <= 1; dy++) {
           int nx = gx + dx, ny = gy + dy;
           if (nx >= 0 && nx < grid_width && ny >= 0 && ny < grid_height)
-            log_odds.at<float>(ny, nx) = std::min(
-                std::max(log_odds.at<float>(ny, nx) + l_occ, l_min), l_max);
+            local_log.at<float>(ny, nx) = std::min(
+                std::max(local_log.at<float>(ny, nx) + l_occ, l_min), l_max);
         }
     }
+
+// 线程安全累加到全局 log_odds
+#pragma omp critical
+    log_odds += local_log;
   }
 
-  // 3️⃣ 转换为概率灰度图
+  // 转概率图 & 可视化
   cv::Mat display(grid_height, grid_width, CV_8UC1, cv::Scalar(127));
-  for (int y = 0; y < grid_height; y++) {
-    for (int x = 0; x < grid_width; x++) {
-      float l = log_odds.at<float>(y, x);
-      float p = 1.0f - 1.0f / (1.0f + exp(l));  // 0~1
-      display.at<uint8_t>(y, x) =
-          static_cast<uint8_t>((1.0f - p) * 255);  // 占据黑，空闲白
-    }
-  }
+  for (int y = 0; y < grid_height; ++y)
+    for (int x = 0; x < grid_width; ++x)
+      display.at<uint8_t>(y, x) = static_cast<uint8_t>(
+          (1.0f - (1.0f - 1.0f / (1.0f + exp(log_odds.at<float>(y, x))))) *
+          255);
 
-  // 4️⃣ 可选：彩色显示机器人轨迹和反光板
   cv::cvtColor(display, map_image, cv::COLOR_GRAY2BGR);
+
   for (auto& kv : keyframes) {
     if (pose.find(kv.first) == pose.end()) continue;
-    Eigen::Matrix4d T = pose[kv.first];
+    Eigen::Matrix4d T = pose.at(kv.first);
     Eigen::Vector3d t = T.block<3, 1>(0, 3);
     int px = static_cast<int>((t(0) - map_origin_x) / map_resolution);
     int py = grid_height - 1 -
              static_cast<int>((t(1) - map_origin_y) / map_resolution);
-    cv::circle(map_image, cv::Point(px, py), 2, cv::Scalar(255, 0, 0),
-               -1);  // 蓝色轨迹
+    cv::circle(map_image, cv::Point(px, py), 2, cv::Scalar(255, 0, 0), -1);
   }
+
   for (auto& kv : ref_pose) {
     Eigen::Vector3d p = kv.second;
     int px = static_cast<int>((p(0) - map_origin_x) / map_resolution);
     int py = grid_height - 1 -
              static_cast<int>((p(1) - map_origin_y) / map_resolution);
-    cv::circle(map_image, cv::Point(px, py), 3, cv::Scalar(0, 0, 255),
-               -1);  // 红色反光板
+    cv::circle(map_image, cv::Point(px, py), 3, cv::Scalar(0, 0, 255), -1);
   }
 
   occupancy_grid = display;
