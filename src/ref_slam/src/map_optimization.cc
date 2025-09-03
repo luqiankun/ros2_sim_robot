@@ -214,8 +214,8 @@ Eigen::Matrix4d MapOptimization::math_keyframe(const Keyframe& key_last,
                                                int& num) {
   std::vector<Eigen::Vector3d> points_last;
   std::vector<Eigen::Vector3d> points_cur;
-  for (auto& x : key_last.observations) {
-    for (auto& y : key_cur.observations) {
+  for (auto& x : key_last.observation_refs) {
+    for (auto& y : key_cur.observation_refs) {
       if (x.id == y.id) {
         points_last.push_back(x.point);
         points_cur.push_back(y.point);
@@ -337,7 +337,7 @@ void MapOptimization::loop() {
           Keyframe frame;
           frame.id = keyframes.size();
           frame.pose = cur_pose_;
-          frame.observations = cur_frame;
+          frame.observation_refs = cur_frame;
           frame.timestamp = std::chrono::steady_clock::now();
           keyframes[frame.id] = frame;
           optimized_map_[frame.id] = frame.pose;
@@ -359,10 +359,11 @@ void MapOptimization::loop() {
               keyframes[keyframes.size() - 1].pose.inverse() *
               cur_pose;  // T_cur_last
           int own = 0;
-          for (auto& obs : keyframes[keyframes.size() - 1].observations) {
-            auto it = std::find_if(
-                cur_frame.begin(), cur_frame.end(),
-                [&obs](const Observation& x) { return x.id == obs.id; });
+          for (auto& obs : keyframes[keyframes.size() - 1].observation_refs) {
+            auto it = std::find_if(cur_frame.begin(), cur_frame.end(),
+                                   [&obs](const ObservationReflector& x) {
+                                     return x.id == obs.id;
+                                   });
             if (it != cur_frame.end()) {
               own++;
             }
@@ -405,7 +406,7 @@ void MapOptimization::loop() {
             frame.pose = cur_pose;
             for (auto& obs : cur_frame) {
               if (obs.id != -1) {
-                frame.observations.push_back(obs);
+                frame.observation_refs.push_back(obs);
               }
             }
             frame.timestamp = std::chrono::steady_clock::now();
@@ -498,7 +499,7 @@ void MapOptimization::laserCallback(
 }
 
 visualization_msgs::msg::MarkerArray MapOptimization::getMarkers(
-    const std::vector<Observation>& observations) {
+    const std::vector<ObservationReflector>& observations) {
   visualization_msgs::msg::MarkerArray markers;
   size_t id = 0;
   for (auto obs = observations.begin(); obs != observations.end(); ++obs) {
@@ -609,7 +610,7 @@ void MapOptimization::optimize_thread() {
       if (window_ids.find(id) == window_ids.end()) {
         problem.SetParameterBlockConstant(params);
       } else {
-        for (auto& ref_id : keyframes[id].observations) {
+        for (auto& ref_id : keyframes[id].observation_refs) {
           if (ref_id.id != -1) {
             ref_ids.insert(ref_id.id);
           }
@@ -651,7 +652,7 @@ void MapOptimization::optimize_thread() {
     status.last_keyframe_num = keyframes.size();
     for (auto const& [id, frame] : keyframes) {
       if (window_ids.find(id) == window_ids.end()) continue;
-      for (auto const& obs : frame.observations) {
+      for (auto const& obs : frame.observation_refs) {
         if (obs.id == -1) continue;
         if (ref_ids.find(obs.id) == ref_ids.end()) continue;
         auto cost = ObservationResidual::Create(obs.point);

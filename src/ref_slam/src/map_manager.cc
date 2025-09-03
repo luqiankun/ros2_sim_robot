@@ -189,7 +189,7 @@ bool MapManager::generate_occupancy_grid(
     }
 
     // 反光板占据格
-    for (auto& obs : kf->observations) {
+    for (auto& obs : kf->observation_refs) {
       if (ref_pose.find(obs.id) == ref_pose.end()) continue;
       Eigen::Vector3d p = ref_pose.at(obs.id);
       int gx = static_cast<int>((p(0) - map_origin_x) / map_resolution);

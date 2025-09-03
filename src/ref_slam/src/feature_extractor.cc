@@ -53,9 +53,9 @@ FeatureExtractor::FeatureExtractor(double radius, double cluster_threshold,
       max_distance_(max_distance),
       max_iterations_(max_iteration),
       identify_threshold_(identify_threshold) {}
-std::vector<Observation> FeatureExtractor::extract(
+std::vector<ObservationReflector> FeatureExtractor::extract(
     const sensor_msgs::msg::LaserScan::SharedPtr& scan) {
-  std::vector<Observation> observations;
+  std::vector<ObservationReflector> observations;
   std::vector<Eigen::Vector3d> candidate_points;
 
   // Step 1: Extract candidate points with high intensity
@@ -130,7 +130,7 @@ std::vector<Observation> FeatureExtractor::extract(
       D = DEF[0];
       E = DEF[1];
       F = DEF[2];
-      auto clusters = Observation();
+      auto clusters = ObservationReflector();
       clusters.timestamp = std::chrono::steady_clock::now();
       clusters.point.x() = -D / 2;
       clusters.point.y() = -E / 2;
@@ -146,9 +146,9 @@ std::vector<Observation> FeatureExtractor::extract(
   return observations;
 }
 
-Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
-                                        std::unordered_map<int, Reflector>& map,
-                                        const Eigen::Matrix4d& odom_pose) {
+Eigen::Matrix4d FeatureExtractor::match(
+    std::vector<ObservationReflector>& reflectors,
+    std::unordered_map<int, Reflector>& map, const Eigen::Matrix4d& odom_pose) {
   if (reflectors.empty() || map.empty()) {
     return Eigen::Matrix4d::Zero();
   }
@@ -192,7 +192,6 @@ Eigen::Matrix4d FeatureExtractor::match(std::vector<Observation>& reflectors,
     // === Step 2: 匈牙利算法全局匹配 ===
     HungarianSafe hungarian(cost);
     auto assignment = hungarian.Solve();
-
 
     std::unordered_map<int, int> map_matched;
     int matched_count = 0;

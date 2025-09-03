@@ -179,13 +179,14 @@ class FeatureExtractor {
     double x_, y_;
   };
 
-  std::vector<Observation> extract(
+  std::vector<ObservationReflector> extract(
       const sensor_msgs::msg::LaserScan::SharedPtr& scan);
-  Eigen::Matrix<double, 4, 4> match(std::vector<Observation>& reflectors,
-                                    std::unordered_map<int, Reflector>& map,
-                                    const Eigen::Matrix4d& odom_pose);
+  Eigen::Matrix<double, 4, 4> match(
+      std::vector<ObservationReflector>& reflectors,
+      std::unordered_map<int, Reflector>& map,
+      const Eigen::Matrix4d& odom_pose);
   Eigen::Matrix<double, 4, 4> pre_pose_estimation(
-      const std::vector<Observation>& reflectors,
+      const std::vector<ObservationReflector>& reflectors,
       std::unordered_map<int, Reflector>& map);
 
  private:

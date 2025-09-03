@@ -45,7 +45,7 @@ class MapOptimization {
   bool save_map(const std_srvs::srv::Empty::Request::SharedPtr& request,
                 const std_srvs::srv::Empty::Response::SharedPtr response);
   visualization_msgs::msg::MarkerArray getMarkers(
-      const std::vector<Observation>& refs);
+      const std::vector<ObservationReflector>& refs);
   void loop();
 
  private:

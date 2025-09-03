@@ -10,26 +10,29 @@
 namespace reflector_slam {
 
 // 反光板观测（传感器坐标系）
-struct Observation {
+struct ObservationReflector {
   Eigen::Vector3d point;  // 3D坐标 雷达坐标系下的
   int id;                 // 匹配到的地图ID（-1表示未匹配）
   double confidence;      // 观测置信度（0~1）
-  std::chrono::steady_clock::time_point timestamp;  
+  std::chrono::steady_clock::time_point timestamp;
 };
+
+struct ObservationCorner : public ObservationReflector {};
 
 // 地图中的反光板（世界坐标系）
 struct Reflector {
   Eigen::Vector3d position;  // 位置
   int id;                    // 唯一ID
 };
-
+struct Corner : public Reflector {};
 // 关键帧
 struct Keyframe {
   int id;                // 关键帧ID
   Eigen::Matrix4d pose;  // 传感器位姿（T_world_sensor）
-  std::chrono::steady_clock::time_point timestamp;  // 时间戳
-  std::vector<Observation> observations;            // 观测数据
-  sensor_msgs::msg::LaserScan::SharedPtr scan;      // 激光数据
+  std::chrono::steady_clock::time_point timestamp;     // 时间戳
+  std::vector<ObservationReflector> observation_refs;  // 观测数据
+  std::vector<ObservationCorner> observation_corners;  // 观测数据
+  sensor_msgs::msg::LaserScan::SharedPtr scan;         // 激光数据
 };
 
 struct Odometry {
