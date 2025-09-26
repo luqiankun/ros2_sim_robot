@@ -617,7 +617,7 @@
                     </type>
                     <mean>0</mean>
                     <stddev>
-                        0.001
+                        0.01
                     </stddev>
                 </noise>
             </lidar>
