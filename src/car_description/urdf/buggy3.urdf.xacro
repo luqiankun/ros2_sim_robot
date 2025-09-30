@@ -609,7 +609,7 @@
                 <range>
                     <min>0.08</min>
                     <max>50.0</max>
-                    <resolution>0.01</resolution>
+                    <resolution>0.001</resolution>
                 </range>
                 <noise>
                     <type>

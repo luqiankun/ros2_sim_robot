@@ -6,7 +6,7 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <shared_mutex>
 namespace loam {
-const double REFLECTOR_INFORMATION_WEIGHT = 2500;
+const double REFLECTOR_INFORMATION_WEIGHT = 10000;
 const double CORNER_INFORMATION_WEIGHT = 400;
 struct Reflector {
   Eigen::Vector2d pos{0, 0};
@@ -36,6 +36,7 @@ struct KeyFrame {
   std::vector<Line> lines;
   sensor_msgs::msg::LaserScan::SharedPtr scan{nullptr};
   Eigen::VectorXd descriptor;  // 描述子向量
+  uint64_t version{0};
   void computeDescriptor() {
     descriptor.resize(6);
     if (!reflectors.empty()) {
@@ -108,14 +109,21 @@ class MapManager {
     // std::shared_lock<std::shared_mutex> lock(mtx_);
     return key_frames_;
   }
+  size_t getKeyFrameSize() {
+    std::shared_lock<std::shared_mutex> lock(mtx_);
+    return key_frames_.size();
+  }
   // 访问最新的关键帧
-  const KeyFrame& getLatestKeyFrame() {
+  KeyFrame getLatestKeyFrame() {
     std::shared_lock<std::shared_mutex> lock(mtx_);
     return key_frames_[key_frames_.size() - 1];
   }
   // 访问关键帧（只读，线程不安全）
   KeyFrame getKeyFrame(int id) {
     // std::shared_lock<std::shared_mutex> lock(mtx_);
+    if (key_frames_.find(id) == key_frames_.end()) {
+      return KeyFrame();
+    }
     return key_frames_[id];
   }
   // 访问缓存关键帧（只读，线程安全）
@@ -126,6 +134,7 @@ class MapManager {
   // 更新关键帧（优化后）
   void updateKeyFrame(const KeyFrame& kf) {
     std::unique_lock<std::shared_mutex> lock(mtx_);
+    if (key_frames_.find(kf.id) == key_frames_.end()) return;
     key_frames_[kf.id] = kf;
   }
 
@@ -133,7 +142,10 @@ class MapManager {
   void updateKeyFrames(const std::vector<KeyFrame>& frames) {
     std::unique_lock<std::shared_mutex> lock(mtx_);
     for (const auto& kf : frames) {
-      key_frames_[kf.id] = kf;
+      if (key_frames_.find(kf.id) == key_frames_.end()) {
+        continue;
+      }
+      if (key_frames_[kf.id].version < kf.version) key_frames_[kf.id] = kf;
     }
   }
 
@@ -141,6 +153,12 @@ class MapManager {
   void updateKeyFrames(std::vector<KeyFrame>&& frames) {
     std::unique_lock<std::shared_mutex> lock(mtx_);
     for (auto& kf : frames) {
+      if (key_frames_.find(kf.id) == key_frames_.end()) {
+        continue;
+      }
+      if (key_frames_[kf.id].version < kf.version) {
+        key_frames_[kf.id] = std::move(kf);
+      }
       key_frames_[kf.id] = std::move(kf);
     }
   }

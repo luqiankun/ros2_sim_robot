@@ -1,5 +1,7 @@
 #include "../include/feature_ext.hpp"
 
+#include <omp.h>
+
 #include <nanoflann.hpp>
 // g2o
 #include <g2o/core/base_unary_edge.h>
@@ -13,7 +15,34 @@
 #include <g2o/solvers/dense/linear_solver_dense.h>
 #include <g2o/types/slam2d/types_slam2d.h>
 namespace loam {
+// 闭式拟合圆心+半径
+Eigen::Vector3d fitCircleAlgebraic(const std::vector<Eigen::Vector2d>& pts) {
+  Eigen::MatrixXd A(pts.size(), 3);
+  Eigen::VectorXd b(pts.size());
+  for (size_t i = 0; i < pts.size(); ++i) {
+    A(i, 0) = pts[i].x();
+    A(i, 1) = pts[i].y();
+    A(i, 2) = 1.0;
+    b(i) = -(pts[i].x() * pts[i].x() + pts[i].y() * pts[i].y());
+  }
+  Eigen::Vector3d sol = A.colPivHouseholderQr().solve(b);
+  double cx = -sol[0] / 2.0;
+  double cy = -sol[1] / 2.0;
+  double r = std::sqrt(cx * cx + cy * cy - sol[2]);
+  return Eigen::Vector3d(cx, cy, r);
+}
 
+// 计算拟合残差
+double computeCircleResidual(const std::vector<Eigen::Vector2d>& pts,
+                             const Eigen::Vector3d& circle) {
+  double err = 0.0;
+  Eigen::Vector2d center(circle[0], circle[1]);
+  double r = circle[2];
+  for (auto& p : pts) {
+    err += std::abs((p - center).norm() - r);
+  }
+  return err / pts.size();
+}
 Eigen::Vector2d transformPoint(const Eigen::Vector2d& p, const g2o::SE2& pose) {
   double c = cos(pose[2]), s = sin(pose[2]);
   return {c * p.x() - s * p.y() + pose[0], s * p.x() + c * p.y() + pose[1]};
@@ -112,27 +141,45 @@ void filterLines(const std::vector<Line>& raw, std::vector<Line>& filtered,
 }
 
 std::vector<int> extractCorners(const std::vector<Eigen::Vector2d>& pts, int k,
-                                double thresh, double max_thresh) {
+                                double thresh, double max_thresh,
+                                int step = 1) {
   std::vector<int> corners;
   int N = pts.size();
-  std::vector<double> curvs(pts.size(), 0.0);
-  for (int i = k; i < N - k; i++) {
-    Eigen::Vector2d mean(0, 0);
-    for (int j = -k; j <= k; j++) mean += pts[i + j];
-    mean /= (2 * k + 1);
+  if (N < 2 * k + 1) return corners;
 
-    double curv = 0;
-    for (int j = -k; j <= k; j++) curv += (pts[i + j] - mean).squaredNorm();
-    curv /= (2 * k + 1);
-    curvs[i] = curv;
+  // 前缀和
+  std::vector<Eigen::Vector2d> prefix_sum(N + 1, Eigen::Vector2d(0, 0));
+  std::vector<double> prefix_sq(N + 1, 0.0);
+  for (int i = 0; i < N; i++) {
+    prefix_sum[i + 1] = prefix_sum[i] + pts[i];
+    prefix_sq[i + 1] = prefix_sq[i] + pts[i].squaredNorm();
   }
+
+  std::vector<double> curvs(N, 0.0);
+
+// === 并行计算曲率 ===
+#pragma omp parallel for schedule(static)
+  for (int i = k; i < N - k; i += step) {
+    int L = i - k, R = i + k;
+    Eigen::Vector2d sum = prefix_sum[R + 1] - prefix_sum[L];
+    double sum_sq = prefix_sq[R + 1] - prefix_sq[L];
+    int count = R - L + 1;
+
+    Eigen::Vector2d mean = sum / count;
+    double mean_sq = mean.squaredNorm();
+    double var = sum_sq / count - mean_sq;
+    curvs[i] = var;
+  }
+
+  // === 非极大值抑制 (串行，避免锁开销) ===
   int nms_k = 3;
-  for (size_t i = k; i < pts.size() - k; i++) {
+  for (int i = k; i < N - k; i += step) {
     if (curvs[i] < thresh || curvs[i] > max_thresh) continue;
 
     bool is_max = true;
     for (int j = -nms_k; j <= nms_k; j++) {
       if (j == 0) continue;
+      if (i + j < 0 || i + j >= N) continue;
       if (curvs[i] < curvs[i + j]) {
         is_max = false;
         break;
@@ -140,6 +187,7 @@ std::vector<int> extractCorners(const std::vector<Eigen::Vector2d>& pts, int k,
     }
     if (is_max) corners.push_back(i);
   }
+
   return corners;
 }
 
@@ -186,12 +234,16 @@ class CircleEdge : public g2o::BaseUnaryEdge<1, double, CircleVertex> {
 void FeatureExtractor::extract_high_intensity_points(
     const sensor_msgs::msg::LaserScan::SharedPtr& scan) {
   high_intensity_points_.clear();
+  pts.clear();
   for (size_t i = 0; i < scan->ranges.size(); i++) {
-    if (scan->intensities[i] < intensity_threshold_) continue;
     double x =
         scan->ranges[i] * cos(scan->angle_min + i * scan->angle_increment);
     double y =
         scan->ranges[i] * sin(scan->angle_min + i * scan->angle_increment);
+    if (std::isfinite(x) && std::isfinite(y)) {
+      pts.push_back(Eigen::Vector2d(x, y));
+    }
+    if (scan->intensities[i] < intensity_threshold_) continue;
     if (std::isfinite(x) && std::isfinite(y))
       high_intensity_points_.push_back(Eigen::Vector2d(x, y));
   }
@@ -227,16 +279,7 @@ bool FeatureExtractor::extract_line(
   return line_obs_.size() > 3;
 }
 
-bool FeatureExtractor::extract_corner(
-    const sensor_msgs::msg::LaserScan::SharedPtr& msg) {
-  std::vector<Eigen::Vector2d> pts;
-  pts.reserve(msg->ranges.size());
-  for (size_t i = 0; i < msg->ranges.size(); i++) {
-    if (!std::isfinite(msg->ranges[i])) continue;
-    float angle = msg->angle_min + i * msg->angle_increment;
-    pts.emplace_back(msg->ranges[i] * cos(angle), msg->ranges[i] * sin(angle));
-  }
-
+bool FeatureExtractor::extract_corner() {
   std::vector<int> corner_idx = extractCorners(pts, 5, 0.02, 0.15);
   // RCLCPP_INFO(rclcpp::get_logger(""), "Found %zu corners",
   // corner_idx.size());
@@ -311,18 +354,35 @@ bool FeatureExtractor::extract_reflector_obs() {
   // RCLCPP_INFO(n_->get_logger(), "- - - - - - - - - ");
   for (auto& kv : clusters) {
     auto& pts = kv.second;
-    // build a ReflectorObs with initial pos = centroid
-    Eigen::Vector3d xy_radius;
-    fit_circle_g2o(pts, xy_radius);
+    if (pts.size() < 3) continue;
+    Eigen::Vector3d circle = fitCircleAlgebraic(pts);
+    double res = computeCircleResidual(pts, circle);
     ReflectorObs ro;
-    ro.pos.x() = xy_radius[0];
-    ro.pos.y() = xy_radius[1];
-    ro.id = -1;  // assigned later
-    if (xy_radius[2] > max_radius_ || xy_radius[2] < min_radius_) continue;
-    reflector_obs_.push_back(ro);
+    ro.id = -1;
+    if (res < 0.02 && circle[2] > min_radius_ && circle[2] < max_radius_) {
+      // 使用闭式解
+      ro.pos.x() = circle[0];
+      ro.pos.y() = circle[1];
+      reflector_obs_.push_back(ro);
+    } else if (circle[2] > max_radius_) {
+      // 离远程，使用簇质心
+      Eigen::Vector2d sum(0, 0);
+      for (auto& p : pts) sum += p;
+      sum /= pts.size();
+      ro.pos.x() = sum.x();
+      ro.pos.y() = sum.y();
+      reflector_obs_.push_back(ro);
+    } else {
+      // 残差大但半径合理，才用 g2o 优化
+      fit_circle_g2o(pts, circle);
+      ro.pos.x() = circle[0];
+      ro.pos.y() = circle[1];
+      reflector_obs_.push_back(ro);
+    }
   }
-  // RCLCPP_INFO(n_->get_logger(), "Extracted %ld reflectors",
-  //             reflector_obs_.size());
+  // RCLCPP_INFO(n_->get_logger(), "Extracted %ld reflectors %ld",
+  //             reflector_obs_.size(), clusters.size());
+
   return reflector_obs_.size() > 2;
 }
 
@@ -379,7 +439,7 @@ void FeatureExtractor::fit_circle_g2o(std::vector<Eigen::Vector2d>& ps,
 
   optimizer.initializeOptimization();
   optimizer.setVerbose(false);
-  optimizer.optimize(20);
+  optimizer.optimize(7);
   Eigen::Vector3d sol = vc->estimate();
   // convert to center/radius
   Eigen::Vector2d center(-sol[0] / 2.0, -sol[1] / 2.0);

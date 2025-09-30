@@ -6,6 +6,9 @@ int main(int argc, char **argv) {
   mappping->Init();
   mappping->Run();
   rclcpp::spin(node);
+  mappping->Save();
+  mappping->Stop();
   rclcpp::shutdown();
+
   return 0;
 }

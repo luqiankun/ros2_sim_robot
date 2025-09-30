@@ -16,14 +16,14 @@ class FeatureExtractor {
   bool extract_reflector_obs();
   void fit_circle_g2o(std::vector<Eigen::Vector2d>&, Eigen::Vector3d&);
   bool extract_line(const sensor_msgs::msg::LaserScan::SharedPtr& scan);
-  bool extract_corner(const sensor_msgs::msg::LaserScan::SharedPtr& scan);
+  bool extract_corner();
 
  public:
   rclcpp::Node::SharedPtr n_;
   double intensity_threshold_{0.8};
   double cluster_radius_{0.02};
-  double max_radius_{0.06};
-  double min_radius_{0.02};
+  double max_radius_{0.07};
+  double min_radius_{0.01};
   int min_num_points_{3};
   double last_scan_time_ = 0.0;
   double curv_threshold_{0.05};
@@ -32,6 +32,7 @@ class FeatureExtractor {
   std::vector<CornerObs> corner_obs_;
   std::vector<LineObs> line_obs_;
   std::vector<Eigen::Vector2d> high_intensity_points_;
+  std::vector<Eigen::Vector2d> pts;
 };
 
 }  // namespace loam

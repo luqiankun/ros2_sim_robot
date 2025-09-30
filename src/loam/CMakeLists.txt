@@ -60,8 +60,8 @@ include_directories(${YAML_CPP_INCLUDE_DIR})
 
 #### TESTING
 
-add_executable(feature_ext_test test/feature_ext_test.cc src/feature_ext.cc src/laser_mapping.cc src/common.cc)
-add_executable(laser_odom_test test/laser_odom_test.cc src/feature_ext.cc src/laser_mapping.cc src/common.cc)
+add_executable(feature_ext_test test/feature_ext_test.cc src/feature_ext.cc src/laser_mapping.cc src/common.cc src/occupacy_map.cc)
+add_executable(laser_odom_test test/laser_odom_test.cc src/feature_ext.cc src/laser_mapping.cc src/common.cc src/occupacy_map.cc)
 
 target_include_directories(feature_ext_test PUBLIC
   ${EIGEN3_INCLUDE_DIRS}
@@ -98,6 +98,7 @@ target_link_libraries(feature_ext_test
   g2o::core
   g2o::stuff
   g2o::types_slam2d
+  g2o::solver_csparse
   ${OpenCV_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
   OpenMP::OpenMP_CXX
@@ -106,6 +107,7 @@ target_link_libraries(laser_odom_test
   g2o::core
   g2o::stuff
   g2o::types_slam2d
+  g2o::solver_csparse
   ${OpenCV_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
   OpenMP::OpenMP_CXX
