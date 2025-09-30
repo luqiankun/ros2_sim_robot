@@ -153,8 +153,10 @@ class LaserMapping {
   std::vector<unsigned long> find_loop_candidates(const Eigen::VectorXd& query,
                                                   int k = 1);
   int check_loop_closure(const KeyFrame& cur_key_frame);
-  void add_kf_to_global_optimizer(const KeyFrame& cur_key_frame);
-  void add_kf_to_local_optimizer(const KeyFrame& cur_key_frame);
+  void add_kf_to_global_optimizer(const KeyFrame& cur_key_frame,
+                                  const KeyFrame& last);
+  void add_kf_to_local_optimizer(const KeyFrame& cur_key_frame,
+                                 const KeyFrame& last);
   // 从 optimizer 中读取所有关键帧估计回填
   void extractKeyFramePoses(std::vector<KeyFrame>& out_kfs);
   ~LaserMapping() {

@@ -8,6 +8,8 @@
 namespace loam {
 const double REFLECTOR_INFORMATION_WEIGHT = 10000;
 const double CORNER_INFORMATION_WEIGHT = 400;
+const double ODOM_INFORMATION_WEIGHT = 1600;
+
 struct Reflector {
   Eigen::Vector2d pos{0, 0};
   int id{-1};

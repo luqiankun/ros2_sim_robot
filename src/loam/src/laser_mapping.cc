@@ -538,7 +538,8 @@ void LaserMapping::front_icp_func() {
     }
   }
 }
-void LaserMapping::add_kf_to_local_optimizer(const KeyFrame& kf) {
+void LaserMapping::add_kf_to_local_optimizer(const KeyFrame& kf,
+                                             const KeyFrame& last_kf) {
   static int id = 0;
   if (local_frame_vertices.count(kf.id) == 0) {
     auto* v = new g2o::VertexSE2();
@@ -593,8 +594,29 @@ void LaserMapping::add_kf_to_local_optimizer(const KeyFrame& kf) {
     edge->robustKernel()->setDelta(1 / sqrt(CORNER_INFORMATION_WEIGHT) * 2);
     local_optimizer->addEdge(edge);
   }
+  // odom
+  if (kf.id != 0) {
+    auto delta_pose = last_kf.pose.inverse() * kf.pose;
+    auto* v_pose_last = dynamic_cast<g2o::VertexSE2*>(
+        local_optimizer->vertex(local_frame_vertices[last_kf.id]));
+    auto* edge = new g2o::EdgeSE2();
+    edge->setVertex(0, v_pose_last);
+    edge->setVertex(1, v_pose);
+    edge->setMeasurement(
+        g2o::SE2(delta_pose.translation().x(), delta_pose.translation().y(),
+                 Eigen::Rotation2Dd(delta_pose.rotation()).angle()));
+    Eigen::Matrix3d info = Eigen::Matrix3d::Identity();
+    info(0, 0) = ODOM_INFORMATION_WEIGHT;
+    info(1, 1) = ODOM_INFORMATION_WEIGHT;
+    info(2, 2) = ODOM_INFORMATION_WEIGHT / 2;
+    edge->setInformation(info);
+    edge->setRobustKernel(new g2o::RobustKernelHuber());
+    edge->robustKernel()->setDelta(1 / sqrt(ODOM_INFORMATION_WEIGHT) * 2);
+    local_optimizer->addEdge(edge);
+  }
 }
-void LaserMapping::add_kf_to_global_optimizer(const KeyFrame& kf) {
+void LaserMapping::add_kf_to_global_optimizer(const KeyFrame& kf,
+                                              const KeyFrame& last_kf) {
   static int id = 0;
   if (global_frame_vertices.count(kf.id) == 0) {
     auto* v = new g2o::VertexSE2();
@@ -647,6 +669,26 @@ void LaserMapping::add_kf_to_global_optimizer(const KeyFrame& kf) {
                          CORNER_INFORMATION_WEIGHT);
     edge->setRobustKernel(new g2o::RobustKernelHuber());
     edge->robustKernel()->setDelta(1 / sqrt(CORNER_INFORMATION_WEIGHT) * 2);
+    global_optimizer->addEdge(edge);
+  }
+  // odom
+  if (kf.id != 0) {
+    auto delta_pose = last_kf.pose.inverse() * kf.pose;
+    auto* v_pose_last = dynamic_cast<g2o::VertexSE2*>(
+        global_optimizer->vertex(global_frame_vertices[last_kf.id]));
+    auto* edge = new g2o::EdgeSE2();
+    edge->setVertex(0, v_pose_last);
+    edge->setVertex(1, v_pose);
+    edge->setMeasurement(
+        g2o::SE2(delta_pose.translation().x(), delta_pose.translation().y(),
+                 Eigen::Rotation2Dd(delta_pose.rotation()).angle()));
+    Eigen::Matrix3d info = Eigen::Matrix3d::Identity();
+    info(0, 0) = ODOM_INFORMATION_WEIGHT;
+    info(1, 1) = ODOM_INFORMATION_WEIGHT;
+    info(2, 2) = ODOM_INFORMATION_WEIGHT / 2;
+    edge->setInformation(info);
+    edge->setRobustKernel(new g2o::RobustKernelHuber());
+    edge->robustKernel()->setDelta(1 / sqrt(ODOM_INFORMATION_WEIGHT) * 2);
     global_optimizer->addEdge(edge);
   }
 }
@@ -860,7 +902,8 @@ void LaserMapping::add_loop_closure_edge(const KeyFrame& kf) {
     double dy = T.translation().y();
     g2o::SE2 meas(dx, dy, Eigen::Rotation2Dd(T.rotation()).angle());
     edge->setMeasurement(meas);
-    edge->setInformation(Eigen::Matrix3d::Identity() * 400);
+    edge->setInformation(Eigen::Matrix3d::Identity() * ODOM_INFORMATION_WEIGHT *
+                         4);
     // Robust kernel to reduce effect of false-positive loops
     auto* rk = new g2o::RobustKernelHuber();
     rk->setDelta(1.0);
