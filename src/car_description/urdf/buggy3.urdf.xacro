@@ -1,320 +1,562 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="MR-Buggy3">
-    <xacro:macro name="iner">
-        <inertia ixx="0.00003331" ixy="0.0" ixz="0.0" iyy="0.0000204" iyz="0.0" izz="0.0000204" />
-    </xacro:macro>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ZC_CR">
+    <material name="red">
+        <color rgba="1 0.1 0.1 1"/>
+    </material>
+    <material name="black">
+        <color rgba="0.1 0.1 0.1 1"/>
+    </material>
+    <material name="gray">
+        <color rgba="0.3 0.3 0.3 1"/>
+    </material>
+    <material name="yellow">
+        <color rgba="1 0.435 0.002 1"/>
+    </material>
+    <material name="green">
+        <color rgba="0.1 1 0.1 1"/>
+    </material>
     <!-- 底座 -->
-    <link name="MR-Buggy3/Base">
+    <link name="footbase">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.4" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="100.0" />
+            <inertia ixx="2.167" ixy="0.0" ixz="0.0" iyy="12.083" iyz="0.0" izz="14.083" />
+        </inertial> -->
+        <inertial auto="true">
+            <mass value="100.0" />
+            <origin xyz="0.0 0.0 0.4" rpy="-1.5707 0.0 -1.5707" />
+            <inertia ixx="2.167" ixy="0.0" ixz="0.0" iyy="12.083" iyz="0.0" izz="20" />
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/footbase.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="black" />
+        </visual>
+        <collision>
+            <density>7874</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/footbase.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 外壳 -->
+    <link name="out_face">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="20.0" />
+            <inertia ixx="1.933" ixy="0.0" ixz="0.0" iyy="2.733" iyz="0.0" izz="1.333" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="20.0" />
+            <inertia ixx="1.933" ixy="0.0" ixz="0.0" iyy="2.733" iyz="0.0" izz="1.333" />
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/outface.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="yellow" />
+        </visual>
+        <collision>
+            <density>7874</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/outface.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 叉齿架 -->
+    <link name="fork_frame">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="80.0" />
+            <inertia ixx="28.83" ixy="0.0" ixz="0.0" iyy="26.83" iyz="0.0" izz="1.333" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="80.0" />
+            <inertia ixx="28.83" ixy="0.0" ixz="0.0" iyy="26.83" iyz="0.0" izz="1.333" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0 0.0 0.00" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/frame.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="black" />
+        </visual>
+        <collision>
+            <density>7874</density>
+
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/frame.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 叉齿 -->
+    <link name="fork">
+        <!-- <inertial>
+            <origin xyz="-0.9 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="46.0" />
+            <inertia ixx="0.09" ixy="0.0" ixz="0.0" iyy="0.97" iyz="0.0" izz="1" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="-0.9 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="30.0" />
+            <inertia ixx="0.09" ixy="0.0" ixz="0.0" iyy="0.97" iyz="0.0" izz="1" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/fork.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="gray" />
+        </visual>
+        <collision>
+            <density>7874</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/fork.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+
+    <!-- 仿撞条 -->
+    <link name="bar">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042" />
+
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/bar.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="black" />
+        </visual>
+        <collision>
+            <density>800</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/bar.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 避障雷达 -->
+    <link name="avoid_lidar">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="2.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042"/>
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.0042"/>
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/lidar.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="green" />
+        </visual>
+        <collision>
+            <density>1800</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/lidar.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+
+    <!-- 屏幕 -->
+    <link name="screen">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/screen.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="black" />
+        </visual>
+        <collision>
+            <density>1100</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/screen.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 按钮 -->
+    <link name="button">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+
+            <mass value="0.1" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/button.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="red" />
+        </visual>
+
+        <collision>
+            <density>400</density>
+
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/button.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 充电口 -->
+    <link name="charge">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/charge.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="green" />
+        </visual>
+        <collision>
+            <density>7874</density>
+
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/charge.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+    <!-- 光通信口 -->
+    <link name="sun">
+        <!-- <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="1.0" />
+            <inertia ixx="0.7" ixy="0.0" ixz="0.0" iyy="0.3" iyz="0.0" izz="0.5" />
+
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/sun.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="green" />
+        </visual>
+        <collision>
+            <density>7874</density>
+            <origin xyz="0.0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/sun.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+        </collision>
+    </link>
+
+
+    <!-- 主舵轮 -->
+    <link name="main_wheel_link">
+        <!-- <inertial>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
+            <mass value="6.79" />
+            <inertia ixx="0.244" ixy="0.0" ixz="0.0" iyy="0.244" iyz="0.0" izz="0.172" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
+            <mass value="20.0" />
+            <inertia ixx="0.244" ixy="0.0" ixz="0.0" iyy="0.244" iyz="0.0" izz="0.172" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
+            <geometry>
+                <cylinder radius="0.105" length="0.075"/>
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <visual>
+            <origin xyz="0 0.0 0.00" rpy="-1.5707 0.0 0" />
+            <geometry>
+                <cylinder radius="0.105" length="0.075"/>
+
+            </geometry>
+        </visual>
+        <collision>
+            <density>4000</density>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 0" />
+            <geometry>
+                <cylinder radius="0.105" length="0.075"/>
+            </geometry>
+            <surface>
+                <friction>
+                    <ode>
+                        <mu>10000000</mu>
+                        <mu2>10000000</mu2>
+                    </ode>
+                </friction>
+            </surface>
+        </collision>
+    </link>
+    <!-- 左前轮 -->
+    <link name="left_wheel_link">
+        <!-- <inertial>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="30.0" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/frontwheel.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <density>4000</density>
+            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/frontwheel.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <surface>
+                <friction>
+                    <ode>
+                        <mu>10000000</mu>
+                        <mu2>10000000</mu2>
+                    </ode>
+                </friction>
+            </surface>
+        </collision>
+
+    </link>
+    <!-- 右前轮 -->
+    <link name="right_wheel_link">
+        <!-- <inertial>
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="30.0" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+        </inertial> -->
+        <inertial auto="true">
+            <origin xyz="0 0.0 0.0" rpy="-1.5707 0.0 -1.5707" />
+            <mass value="5.0" />
+            <inertia ixx="0.089" ixy="0.0" ixz="0.0" iyy="0.089" iyz="0.0" izz="0.172" />
+
+        </inertial>
+        <visual>
+            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/frontwheel.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <material name="gray"/>
+        </visual>
+        <collision>
+            <density>4000</density>
+            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+            <geometry>
+                <mesh filename="package://car_description/meshes/frontwheel.stl" scale="0.0010 0.0010 0.0010" />
+            </geometry>
+            <surface>
+                <friction>
+                    <ode>
+                        <mu>10000000</mu>
+                        <mu2>10000000</mu2>
+                    </ode>
+                </friction>
+            </surface>
+        </collision>
+    </link>
+    <!-- 主轮转向轴 -->
+    <link name="main_wheel_base_link">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <mass value="3.0" />
+            <inertia ixx="0.0158" ixy="0.0" ixz="0.0" iyy="0.0158" iyz="0.0" izz="0.005" />
+        </inertial>
+    </link>
+    <!-- base_link -->
+    <link name="base_link">
         <inertial>
             <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
             <mass value="3.0" />
             <inertia ixx="0.054" ixy="0.0" ixz="0.0" iyy="0.252" iyz="0.0" izz="0.252" />
         </inertial>
-        <visual>
-            <origin xyz="0.1371 0.0 -0.0115" rpy="-0.018 0.0 1.5707" />
-            <geometry>
-                <mesh filename="package://car_description/meshes/BaseReduced.dae" />
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.1371 0.0 -0.0115" rpy="-0.018 0.0 1.5707" />
-            <geometry>
-                <mesh filename="package://car_description/meshes/TopReduced.dae" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 0.0 0.09" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <box size="0.3 0.09 0.16" />
-            </geometry>
-        </collision>
     </link>
-    <!-- ray -->
-    <link name="MR-Buggy3/GpuLidar">
+    <!-- 导航2D雷达 -->
+    <link name="main_2d_lidar_link">
         <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.01" />
-            <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001" />
-        </inertial>
-        <visual>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <sphere radius="0.001" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <sphere radius="0.001" />
-            </geometry>
-        </collision>
-    </link>
-    <!-- 右前轮 -->
-    <link name="MR-Buggy3/FrontRightWheel">
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.05" />
-            <xacro:iner></xacro:iner>
-        </inertial>
-        <visual name="">
-            <origin xyz="0.0 -0.01 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <mesh filename="package://car_description/meshes/Wheel.dae" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 0.012 0.0" rpy="1.5707 0.0 0.0" />
-            <geometry>
-                <cylinder radius="0.0365" length="0.03" />
-            </geometry>
-            <surface>
-                <friction>
-                    <ode>
-                        <mu>1</mu>
-                        <mu2>1</mu2>
-                        <slip1>1.0</slip1>
-                        <slip2>1.0</slip2>
-                    </ode>
-                </friction>
-            </surface>
-        </collision>
-    </link>
-    <!-- 右前轮转向 -->
-    <link name="MR-Buggy3/FrontRightWheelSteering">
-        <visual>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <sphere radius="0.001" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <sphere radius="0.001" />
-            </geometry>
-        </collision>
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.005" />
-            <inertia ixx="0.0000018" ixy="0.0" ixz="0.0" iyy="0.0000018" iyz="0.0" izz="0.0000018" />
-        </inertial>
-    </link>
-    <!-- 左前轮 -->
-    <link name="MR-Buggy3/FrontLeftWheel">
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.05" />
-            <xacro:iner></xacro:iner>
-
-        </inertial>
-        <visual name="">
-            <origin xyz="0.0 0.01 0.0" rpy="0.0 0.0 3.14159" />
-            <geometry>
-                <mesh filename="package://car_description/meshes/Wheel.dae" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 -0.012 0.0" rpy="1.5707 0.0 0.0" />
-            <geometry>
-                <cylinder radius="0.0365" length="0.03" />
-            </geometry>
-            <surface>
-                <friction>
-                    <ode>
-                        <mu>1</mu>
-                        <mu2>1</mu2>
-                        <slip1>1.0</slip1>
-                        <slip2>1.0</slip2>
-                    </ode>
-                </friction>
-            </surface>
-        </collision>
-    </link>
-    <!-- 左前轮转向 -->
-    <link name="MR-Buggy3/FrontLeftWheelSteering">
-        <visual>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <sphere radius="0.001" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <sphere radius="0.001" />
-            </geometry>
-        </collision>
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.005" />
-            <inertia ixx="0.0000018" ixy="0.0" ixz="0.0" iyy="0.0000018" iyz="0.0" izz="0.0000018" />
+            <origin xyz="0 0.0 0.0" rpy="0 0.0 0" />
+            <mass value="3.0" />
+            <inertia ixx="0.04" ixy="0.0" ixz="0.0" iyy="0.04" iyz="0.0" izz="0.04" />
         </inertial>
     </link>
 
-    <!-- 右后轮 -->
-    <link name="MR-Buggy3/RearRightWheel">
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.05" />
-            <xacro:iner></xacro:iner>
-
-        </inertial>
-        <visual name="">
-            <origin xyz="0.0 -0.01 0.0" rpy="0.0 0.0 0.0" />
-            <geometry>
-                <mesh filename="package://car_description/meshes/Wheel.dae" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 0.012 0.0" rpy="1.5707 0.0 0.0" />
-            <geometry>
-                <cylinder radius="0.0365" length="0.03" />
-            </geometry>
-            <surface>
-                <friction>
-                    <ode>
-                        <mu>1000</mu>
-                        <mu2>1000</mu2>
-                        <slip1>1.0</slip1>
-                        <slip2>1.0</slip2>
-                    </ode>
-                </friction>
-            </surface>
-        </collision>
-    </link>
-
-    <!-- 左后轮 -->
-    <link name="MR-Buggy3/RearLeftWheel">
-        <inertial>
-            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
-            <mass value="0.05" />
-            <xacro:iner></xacro:iner>
-        </inertial>
-        <visual name="">
-            <origin xyz="0.0 0.01 0.0" rpy="0.0 0.0 3.14159" />
-            <geometry>
-                <mesh filename="package://car_description/meshes/Wheel.dae" />
-            </geometry>
-        </visual>
-        <collision>
-            <origin xyz="0.0 -0.012 0.0" rpy="1.5707 0.0 0.0" />
-            <geometry>
-                <cylinder radius="0.0365" length="0.03" />
-            </geometry>
-            <surface>
-                <friction>
-                    <ode>
-                        <mu>1000</mu>
-                        <mu2>1000</mu2>
-                        <slip1>1.0</slip1>
-                        <slip2>1.0</slip2>
-                    </ode>
-                </friction>
-            </surface>
-        </collision>
-    </link>
 
 
-    <!-- 右前轮转向关节 -->
-    <joint name="MR-Buggy3/FrontRightWheelSteeringJoint" type="revolute">
-        <origin xyz="0.112 -0.09 0" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/Base" />
-        <child link="MR-Buggy3/FrontRightWheelSteering" />
-        <axis xyz="0.0 0.0 1" />
-        <limit lower="-0.6" upper="0.6" effort="250" velocity="1.0" />
-        <dynamics damping="20" friction="50" />
+    <joint name="frame_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="fork_frame"/>
     </joint>
-    <!-- 右前轮关节 -->
-    <joint name="MR-Buggy3/FrontRightWheelJoint" type="continuous">
-        <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/FrontRightWheelSteering" />
-        <child link="MR-Buggy3/FrontRightWheel" />
-        <axis xyz="0.0 1 0.0" />
-        <limit effort="1500" velocity="60.0" />
-        <dynamics damping="0.1" friction="0.1" />
+    <joint name="outface_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="out_face"/>
+    </joint>
+    <joint name="bar_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="bar"/>
+    </joint>
+    <joint name="charge_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="charge"/>
+    </joint>
+    <joint name="screen_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="screen"/>
+    </joint>
+    <joint name="button_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="button"/>
+    </joint>
+    <joint name="avoid_lidar_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="avoid_lidar"/>
+    </joint>
+    <joint name="sun_foot_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="sun"/>
+    </joint>
+    <joint name="base_link_joint" type="fixed">
+        <origin xyz="-1.01 0 0" rpy="0.0 0.0 0"/>
+        <parent link="footbase"/>
+        <child link="base_link"/>
+        <axis xyz="0.0 0.0 0.0"/>
+    </joint>
+    <joint name="foot_main_2d_lidar_joint" type="fixed">
+        <origin xyz="-0.115 0.0 -1.9" rpy="0.0 0.0 0.0"/>
+        <parent link="main_2d_lidar_link"/>
+        <child link="footbase"/>
     </joint>
 
-    <!-- 右后轮关节 -->
-    <joint name="MR-Buggy3/RearRightWheelJoint" type="continuous">
-        <origin xyz="-0.112 -0.09 0" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/Base" />
-        <child link="MR-Buggy3/RearRightWheel" />
-        <axis xyz="0.0 1 0.0" />
-        <limit effort="1500" velocity="60.0" />
-        <dynamics damping="20" friction="10" />
+    <joint name="fork_joint" type="prismatic">
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="fork"/>
+        <axis xyz="0.0 0.0 1"/>
+        <limit lower="0" upper="3.0" effort="3000.0" velocity="1.0"/>
+        <dynamics damping="10.0" friction="50.0"/>
     </joint>
-
-    <!-- 左前轮转向关节 -->
-    <joint name="MR-Buggy3/FrontLeftWheelSteeringJoint" type="revolute">
-        <origin xyz="0.112 0.09 0" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/Base" />
-        <child link="MR-Buggy3/FrontLeftWheelSteering" />
-        <axis xyz="0.0 0.0 1" />
-        <limit lower="-0.6" upper="0.6" effort="250" velocity="1.0" />
-        <dynamics damping="20" friction="50" />
-
+    <joint name="main_wheel_base_joint" type="continuous">
+        <origin xyz="0.25 0.0 0.05" rpy="0.0 0.0 0.0"/>
+        <parent link="footbase"/>
+        <child link="main_wheel_base_link"/>
+        <axis xyz="0.0 0.0 1"/>
+        <limit effort="500.0" velocity="0.3"/>
+        <dynamics damping="1.0" friction="30"/>
     </joint>
-    <!-- 左前轮关节 -->
-    <joint name="MR-Buggy3/FrontLeftWheelJoint" type="continuous">
-        <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/FrontLeftWheelSteering" />
-        <child link="MR-Buggy3/FrontLeftWheel" />
-        <axis xyz="0.0 1 0.0" />
-        <limit effort="1500" velocity="60.0" />
-        <dynamics damping="0.1" friction="0.1" />
-
+    <joint name="main_wheel_joint" type="continuous">
+        <origin xyz="0 0.0 0" rpy="0.0 0.0 0.0"/>
+        <parent link="main_wheel_base_link"/>
+        <child link="main_wheel_link"/>
+        <axis xyz="0.0 1.0 0.0"/>
+        <limit effort="700.0" velocity="200.0"/>
+        <dynamics damping="0.1" friction="1.0"/>
     </joint>
-    <!-- 左后轮关节 -->
-    <joint name="MR-Buggy3/RearLeftWheelJoint" type="continuous">
-        <origin xyz="-0.112 0.09 0" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/Base" />
-        <child link="MR-Buggy3/RearLeftWheel" />
-        <axis xyz="0.0 1 0.0" />
-        <limit effort="1500" velocity="60.0" />
-        <dynamics damping="20" friction="10" />
+    <joint name="left_wheel_joint" type="continuous">
+        <origin xyz="-1.01 0.2525 -0.015" rpy="0.0 0.0 1.5707"/>
+        <parent link="footbase"/>
+        <child link="left_wheel_link"/>
+        <axis xyz="1.0 0.0 0.0"/>
+        <limit effort="200.0" velocity="200.0"/>
+        <dynamics damping="0.1" friction="1.0" />
     </joint>
-    <!-- ray -->
-    <joint name="MR-Buggy3/LidarJoint" type="continuous">
-        <origin xyz="0.0 0.0 0.27" rpy="0.0 0.0 0.0" />
-        <parent link="MR-Buggy3/Base" />
-        <child link="MR-Buggy3/GpuLidar" />
-        <axis xyz="0.0 0.0 1" />
-        <limit lower="0.0" upper="0.0" effort="0.0" velocity="0.0" />
+    <joint name="right_wheel_joint" type="continuous">
+        <origin xyz="-1.01 -0.2525 -0.015" rpy="0.0 0.0 1.5707"/>
+        <parent link="footbase"/>
+        <child link="right_wheel_link"/>
+        <axis xyz="1.0 0.0 0.0"/>
+        <limit effort="200.0" velocity="200.0"/>
+        <dynamics damping="0.1" friction="1.0"/>
     </joint>
     <!-- ros2_control -->
     <ros2_control name="GazeboSimSystem" type="system">
         <hardware>
             <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </hardware>
-        <joint name="MR-Buggy3/FrontRightWheelSteeringJoint">
-            <command_interface name="position">
-                <param name="min">-0.6</param>
-                <param name="max">0.6</param>
+        <joint name="fork_joint">
+            <command_interface name="velocity">
+                <param name="min">-10</param>
+                <param name="max">10</param>
             </command_interface>
             <state_interface name="position" />
             <state_interface name="velocity" />
             <state_interface name="effort" />
         </joint>
-        <joint name="MR-Buggy3/FrontLeftWheelSteeringJoint">
+        <joint name="main_wheel_base_joint">
             <command_interface name="position">
-                <param name="min">-0.6</param>
-                <param name="max">0.6</param>
+                <param name="min">-1.5707</param>
+                <param name="max">1.5707</param>
             </command_interface>
             <state_interface name="position" />
             <state_interface name="velocity" />
             <state_interface name="effort" />
         </joint>
-        <joint name="MR-Buggy3/FrontRightWheelJoint">
-            <state_interface name="position" />
-            <state_interface name="velocity" />
-            <state_interface name="effort" />
-        </joint>
-        <joint name="MR-Buggy3/FrontLeftWheelJoint">
-            <state_interface name="position" />
-            <state_interface name="velocity" />
-            <state_interface name="effort" />
-        </joint>
-        <joint name="MR-Buggy3/RearLeftWheelJoint">
+        <joint name="main_wheel_joint">
             <command_interface name="velocity">
                 <param name="min">-30</param>
                 <param name="max">30</param>
@@ -323,16 +565,12 @@
             <state_interface name="velocity" />
             <state_interface name="effort" />
         </joint>
-        <joint name="MR-Buggy3/RearRightWheelJoint">
-            <command_interface name="velocity">
-                <param name="min">-30</param>
-                <param name="max">30</param>
-            </command_interface>
+        <joint name="left_wheel_joint">
             <state_interface name="position" />
             <state_interface name="velocity" />
             <state_interface name="effort" />
         </joint>
-        <joint name="MR-Buggy3/LidarJoint">
+        <joint name="right_wheel_joint">
             <state_interface name="position" />
             <state_interface name="velocity" />
             <state_interface name="effort" />
@@ -340,42 +578,38 @@
     </ros2_control>
     <gazebo>
         <!-- Joint state publisher -->
-        <plugin filename="libgz_ros2_control-system"
-            name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <plugin filename="libgz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
             <parameters>$(find car_description)/config/car.yaml</parameters>
         </plugin>
-        <plugin
-            filename="gz-sim-sensors-system"
-            name="gz::sim::systems::Sensors">
-            <render_engine>ogre2</render_engine>
-        </plugin>
     </gazebo>
-    <gazebo reference="MR-Buggy3/GpuLidar">
+
+    <gazebo reference="main_2d_lidar_link">
         <sensor name='gpu_lidar' type='gpu_lidar'>
             <always_on>true</always_on>
-            <visualize>true</visualize>
+            <visualize>false</visualize>
             <topic>lidar</topic>
             <update_rate>10</update_rate>
-            <gz_frame_id>MR-Buggy3/GpuLidar</gz_frame_id>
+            <!-- 必须添加gz_frame_id 否则rviz2无法显示激光 -->
+            <gz_frame_id>main_2d_lidar_link</gz_frame_id>
             <lidar>
                 <scan>
                     <horizontal>
-                        <samples>3600</samples>
+                        <samples>16000</samples>
                         <resolution>1</resolution>
-                        <min_angle>-2.35619</min_angle>
-                        <max_angle>2.35619</max_angle>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
                     </horizontal>
                     <vertical>
                         <samples>1</samples>
-                        <resolution>0.01</resolution>
+                        <resolution>1</resolution>
                         <min_angle>0</min_angle>
                         <max_angle>0</max_angle>
                     </vertical>
                 </scan>
                 <range>
                     <min>0.08</min>
-                    <max>10.0</max>
-                    <resolution>0.01</resolution>
+                    <max>50.0</max>
+                    <resolution>0.001</resolution>
                 </range>
                 <noise>
                     <type>
@@ -383,10 +617,21 @@
                     </type>
                     <mean>0</mean>
                     <stddev>
-                        0.001
+                        0.01
                     </stddev>
                 </noise>
             </lidar>
+        </sensor>
+    </gazebo>
+
+    <gazebo reference="base_link">
+        <sensor name="imu" type="imu">
+            <always_on>true</always_on>
+            <update_rate>200</update_rate>
+            <visualize>true</visualize>
+            <topic>imu</topic>
+            <imu>
+            </imu>
         </sensor>
     </gazebo>
 </robot>

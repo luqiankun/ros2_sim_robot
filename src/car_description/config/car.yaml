@@ -1,6 +1,6 @@
 controller_manager:
   ros__parameters:
-    update_rate: 100 # Hz
+    update_rate: 200 # Hz
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
     velocity_controller:
@@ -11,12 +11,15 @@ controller_manager:
 velocity_controller:
   ros__parameters:
     joints:
-      # - MR-Buggy3/FrontRightWheelJoint # 右前轮
-      # - MR-Buggy3/FrontLeftWheelJoint #左前轮
-      - MR-Buggy3/RearRightWheelJoint # 右后轮
-      - MR-Buggy3/RearLeftWheelJoint # 左后轮
+      - main_wheel_joint # 主驱动轮
+      - fork_joint #叉齿
 position_controller:
   ros__parameters:
     joints:
-      - MR-Buggy3/FrontRightWheelSteeringJoint # 右前转向
-      - MR-Buggy3/FrontLeftWheelSteeringJoint # 左前转向
+      - main_wheel_base_joint #舵轮轴
+    gains:
+      main_wheel_base_joint:
+        p: 60
+        d: 1
+        i: 4
+        i_clamp: 1.0

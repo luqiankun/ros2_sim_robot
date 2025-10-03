@@ -4,6 +4,7 @@ project(car_description)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(-std=c++17)
 # find dependencies
@@ -17,13 +18,16 @@ find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(can_msgs REQUIRED)
+find_package(controller_manager_msgs REQUIRED)
+
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
-add_executable(move src/main.cc src/pugixml.cc)
+add_executable(driver_node src/driver.cc include/driver.hpp)
 ament_target_dependencies(
-  move
+  driver_node
   rclcpp
   std_msgs
   tf2_ros
@@ -32,6 +36,8 @@ ament_target_dependencies(
   geometry_msgs
   nav_msgs
   visualization_msgs
+  can_msgs
+  controller_manager_msgs
 )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -44,11 +50,9 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-install(TARGETS move
-DESTINATION lib/${PROJECT_NAME}
-
-)
-install(DIRECTORY launch urdf meshes config world
+install(TARGETS driver_node
+DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY launch urdf meshes config world rviz
 DESTINATION share/${PROJECT_NAME}
 )
 ament_package()
